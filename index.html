@@ -438,12 +438,13 @@ var channels = [
 
 var channelButtons = [];
 var activeChannelIndex = null;
-var audioContext = null;
-var analyser = null;
-var sourceNode = null;
-var frequencyData = null;
-var visualizerReady = false;
-var fallbackVisualizer = true;
+var waveformAudio = null;
+var waveformContext = null;
+var waveformSource = null;
+var waveformAnalyser = null;
+var waveformGain = null;
+var waveformData = null;
+var waveformToken = 0;
 
 function updateHealthSummary() {
   var counts = channelButtons.reduce(function (result, button) {
@@ -507,25 +508,92 @@ function updatePlaybackStatus(status) {
   }
 }
 
-function setupVisualizer() {
-  var player = document.getElementById("music");
-  var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+function cleanupWaveformAnalyzer() {
+  waveformToken += 1;
 
-  if (!player || !AudioContextClass || visualizerReady) return;
+  if (waveformAudio) {
+    waveformAudio.pause();
+    waveformAudio.removeAttribute("src");
+    waveformAudio.load();
+    if (waveformAudio.parentNode) {
+      waveformAudio.parentNode.removeChild(waveformAudio);
+    }
+  }
+
+  if (waveformSource && typeof waveformSource.disconnect === "function") {
+    try {
+      waveformSource.disconnect();
+    } catch (error) {}
+  }
+
+  if (waveformAnalyser && typeof waveformAnalyser.disconnect === "function") {
+    try {
+      waveformAnalyser.disconnect();
+    } catch (error) {}
+  }
+
+  if (waveformGain && typeof waveformGain.disconnect === "function") {
+    try {
+      waveformGain.disconnect();
+    } catch (error) {}
+  }
+
+  waveformAudio = null;
+  waveformSource = null;
+  waveformAnalyser = null;
+  waveformGain = null;
+  waveformData = null;
+}
+
+function startWaveformAnalyzer(channel) {
+  var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  var token;
+  var playback;
+
+  cleanupWaveformAnalyzer();
+
+  if (!AudioContextClass || !channel) return;
+
+  token = waveformToken;
 
   try {
-    audioContext = new AudioContextClass();
-    sourceNode = audioContext.createMediaElementSource(player);
-    analyser = audioContext.createAnalyser();
-    analyser.fftSize = 128;
-    analyser.smoothingTimeConstant = .82;
-    sourceNode.connect(analyser);
-    analyser.connect(audioContext.destination);
-    frequencyData = new Uint8Array(analyser.frequencyBinCount);
-    visualizerReady = true;
+    if (!waveformContext) {
+      waveformContext = new AudioContextClass();
+    }
+
+    if (waveformContext.state === "suspended") {
+      waveformContext.resume();
+    }
+
+    waveformAudio = document.createElement("audio");
+    waveformAudio.crossOrigin = "anonymous";
+    waveformAudio.muted = true;
+    waveformAudio.preload = "none";
+    waveformAudio.src = channel.url;
+    waveformAudio.style.display = "none";
+    document.body.appendChild(waveformAudio);
+
+    waveformSource = waveformContext.createMediaElementSource(waveformAudio);
+    waveformAnalyser = waveformContext.createAnalyser();
+    waveformAnalyser.fftSize = 128;
+    waveformAnalyser.smoothingTimeConstant = .78;
+    waveformGain = waveformContext.createGain();
+    waveformGain.gain.value = 0;
+    waveformSource.connect(waveformAnalyser);
+    waveformAnalyser.connect(waveformGain);
+    waveformGain.connect(waveformContext.destination);
+    waveformData = new Uint8Array(waveformAnalyser.frequencyBinCount);
+
+    playback = waveformAudio.play();
+    if (playback && typeof playback.catch === "function") {
+      playback.catch(function () {
+        if (token === waveformToken) {
+          cleanupWaveformAnalyzer();
+        }
+      });
+    }
   } catch (error) {
-    fallbackVisualizer = true;
-    console.warn("Audio visualizer fallback:", error);
+    cleanupWaveformAnalyzer();
   }
 }
 
@@ -537,11 +605,7 @@ function playChannel(index) {
   if (!channel || !player) return;
 
   setActiveChannel(index);
-  setupVisualizer();
-
-  if (audioContext && audioContext.state === "suspended") {
-    audioContext.resume();
-  }
+  cleanupWaveformAnalyzer();
 
   if (current) {
     current.textContent = "CHANNEL " + String(index + 1).padStart(2, "0");
@@ -553,11 +617,16 @@ function playChannel(index) {
 
   var playback = player.play();
   if (playback && typeof playback.catch === "function") {
-    playback.catch(function (error) {
+    playback.then(function () {
+      startWaveformAnalyzer(channel);
+    }).catch(function (error) {
       console.warn("Playback failed:", channel.name, error);
       updatePlaybackStatus("ERROR");
       setChannelState(index, "dead", "playback failed");
+      cleanupWaveformAnalyzer();
     });
+  } else {
+    startWaveformAnalyzer(channel);
   }
 }
 
@@ -707,8 +776,8 @@ function drawVisualizer() {
   var context = canvas && canvas.getContext("2d");
   var playing = player && !player.paused && !player.ended;
   var values = [];
+  var hasWaveform = false;
   var total = 0;
-  var useAnalyser = false;
   var width;
   var height;
   var bars = 46;
@@ -727,24 +796,21 @@ function drawVisualizer() {
   height = canvas.clientHeight;
   context.clearRect(0, 0, width, height);
 
-  if (analyser && frequencyData && playing) {
-    analyser.getByteFrequencyData(frequencyData);
-    for (i = 0; i < frequencyData.length; i += 1) {
-      total += frequencyData[i];
+  if (waveformAnalyser && waveformData && playing) {
+    waveformAnalyser.getByteFrequencyData(waveformData);
+    for (i = 0; i < waveformData.length; i += 1) {
+      total += waveformData[i];
     }
-    useAnalyser = total > 0;
+    hasWaveform = total > 0;
+  }
+
+  if (!hasWaveform) {
+    requestAnimationFrame(drawVisualizer);
+    return;
   }
 
   for (i = 0; i < bars; i += 1) {
-    if (useAnalyser) {
-      values[i] = frequencyData[Math.floor(i / bars * frequencyData.length)] / 255;
-    } else if (playing || fallbackVisualizer) {
-      values[i] = playing
-        ? .24 + Math.pow(Math.sin(now * 2.4 + i * .47) * .5 + .5, 1.7) * .68
-        : .1 + Math.pow(Math.sin(now * 1.1 + i * .31) * .5 + .5, 2) * .16;
-    } else {
-      values[i] = .12;
-    }
+    values[i] = waveformData[Math.floor(i / bars * waveformData.length)] / 255;
   }
 
   barWidth = Math.max(3, (width - gap * (bars - 1)) / bars);
@@ -754,9 +820,9 @@ function drawVisualizer() {
     var barHeight = Math.max(5, value * (height - 16));
     var x = i * (barWidth + gap);
     var y = (height - barHeight) / 2;
-    var accentMix = playing ? i / bars : 0;
+    var accentMix = i / bars;
 
-    context.fillStyle = playing && i % 7 === 0
+    context.fillStyle = i % 7 === 0
       ? "rgba(255,138,36," + (.36 + accentMix * .44).toFixed(3) + ")"
       : "rgba(88,101,120," + (.24 + value * .46).toFixed(3) + ")";
     drawBar(context, x, y, barWidth, barHeight, Math.min(6, barWidth / 2));
@@ -775,6 +841,7 @@ function bindPlayerEvents() {
   });
   player.addEventListener("pause", function () {
     updatePlaybackStatus("PAUSED");
+    cleanupWaveformAnalyzer();
   });
   player.addEventListener("waiting", function () {
     updatePlaybackStatus("LOADING");
