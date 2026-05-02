@@ -266,7 +266,7 @@ button {
   align-items: center;
   gap: 14px;
   width: min(1120px, calc(100% - 32px));
-  height: 92px;
+  height: 104px;
   margin: 0 auto;
   padding: 14px;
   border: 1px solid rgba(255,255,255,.78);
@@ -310,7 +310,7 @@ button {
 #visualizerCanvas {
   display: block;
   width: 100%;
-  height: 58px;
+  height: 70px;
   border-radius: 8px;
   background: linear-gradient(145deg, #e4ebf4, #fbfcff);
   box-shadow:
@@ -372,10 +372,10 @@ button {
   </article>
 </main>
 
-<footer class="visualizer-panel" aria-label="Audio visualizer">
+<footer class="visualizer-panel" aria-label="Water clock">
   <div class="visualizer-meta">
     <span class="visualizer-dot" id="visualizerDot"></span>
-    <span id="visualizerState">STANDBY</span>
+    <span id="visualizerState">TIME</span>
   </div>
   <canvas id="visualizerCanvas"></canvas>
 </footer>
@@ -438,13 +438,6 @@ var channels = [
 
 var channelButtons = [];
 var activeChannelIndex = null;
-var waveformAudio = null;
-var waveformContext = null;
-var waveformSource = null;
-var waveformAnalyser = null;
-var waveformGain = null;
-var waveformData = null;
-var waveformToken = 0;
 
 function updateHealthSummary() {
   var counts = channelButtons.reduce(function (result, button) {
@@ -508,95 +501,6 @@ function updatePlaybackStatus(status) {
   }
 }
 
-function cleanupWaveformAnalyzer() {
-  waveformToken += 1;
-
-  if (waveformAudio) {
-    waveformAudio.pause();
-    waveformAudio.removeAttribute("src");
-    waveformAudio.load();
-    if (waveformAudio.parentNode) {
-      waveformAudio.parentNode.removeChild(waveformAudio);
-    }
-  }
-
-  if (waveformSource && typeof waveformSource.disconnect === "function") {
-    try {
-      waveformSource.disconnect();
-    } catch (error) {}
-  }
-
-  if (waveformAnalyser && typeof waveformAnalyser.disconnect === "function") {
-    try {
-      waveformAnalyser.disconnect();
-    } catch (error) {}
-  }
-
-  if (waveformGain && typeof waveformGain.disconnect === "function") {
-    try {
-      waveformGain.disconnect();
-    } catch (error) {}
-  }
-
-  waveformAudio = null;
-  waveformSource = null;
-  waveformAnalyser = null;
-  waveformGain = null;
-  waveformData = null;
-}
-
-function startWaveformAnalyzer(channel) {
-  var AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  var token;
-  var playback;
-
-  cleanupWaveformAnalyzer();
-
-  if (!AudioContextClass || !channel) return;
-
-  token = waveformToken;
-
-  try {
-    if (!waveformContext) {
-      waveformContext = new AudioContextClass();
-    }
-
-    if (waveformContext.state === "suspended") {
-      waveformContext.resume();
-    }
-
-    waveformAudio = document.createElement("audio");
-    waveformAudio.crossOrigin = "anonymous";
-    waveformAudio.muted = true;
-    waveformAudio.preload = "none";
-    waveformAudio.src = channel.url;
-    waveformAudio.style.display = "none";
-    document.body.appendChild(waveformAudio);
-
-    waveformSource = waveformContext.createMediaElementSource(waveformAudio);
-    waveformAnalyser = waveformContext.createAnalyser();
-    waveformAnalyser.fftSize = 128;
-    waveformAnalyser.smoothingTimeConstant = .78;
-    waveformGain = waveformContext.createGain();
-    waveformGain.gain.value = 0;
-    waveformSource.connect(waveformAnalyser);
-    waveformAnalyser.connect(waveformGain);
-    waveformGain.connect(waveformContext.destination);
-    waveformData = new Uint8Array(waveformAnalyser.frequencyBinCount);
-
-    playback = waveformAudio.play();
-    if (playback && typeof playback.catch === "function") {
-      playback.catch(function () {
-        if (token === waveformToken) {
-          cleanupWaveformAnalyzer();
-        }
-      });
-    }
-  } catch (error) {
-    cleanupWaveformAnalyzer();
-  }
-}
-
 function playChannel(index) {
   var channel = channels[index];
   var player = document.getElementById("music");
@@ -605,7 +509,6 @@ function playChannel(index) {
   if (!channel || !player) return;
 
   setActiveChannel(index);
-  cleanupWaveformAnalyzer();
 
   if (current) {
     current.textContent = "CHANNEL " + String(index + 1).padStart(2, "0");
@@ -617,16 +520,11 @@ function playChannel(index) {
 
   var playback = player.play();
   if (playback && typeof playback.catch === "function") {
-    playback.then(function () {
-      startWaveformAnalyzer(channel);
-    }).catch(function (error) {
+    playback.catch(function (error) {
       console.warn("Playback failed:", channel.name, error);
       updatePlaybackStatus("ERROR");
       setChannelState(index, "dead", "playback failed");
-      cleanupWaveformAnalyzer();
     });
-  } else {
-    startWaveformAnalyzer(channel);
   }
 }
 
@@ -772,18 +670,20 @@ function drawBar(context, x, y, width, height, radius) {
 
 function drawVisualizer() {
   var canvas = document.getElementById("visualizerCanvas");
-  var player = document.getElementById("music");
   var context = canvas && canvas.getContext("2d");
-  var playing = player && !player.paused && !player.ended;
-  var values = [];
-  var hasWaveform = false;
-  var total = 0;
   var width;
   var height;
-  var bars = 46;
-  var gap = 5;
-  var barWidth;
-  var now = performance.now() / 1000;
+  var now = Date.now();
+  var seconds = now / 1000;
+  var time = new Date(now);
+  var timeText = time.toLocaleTimeString("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+  var fill;
+  var surface;
+  var wave;
   var i;
 
   if (!canvas || !context) {
@@ -796,37 +696,54 @@ function drawVisualizer() {
   height = canvas.clientHeight;
   context.clearRect(0, 0, width, height);
 
-  if (waveformAnalyser && waveformData && playing) {
-    waveformAnalyser.getByteFrequencyData(waveformData);
-    for (i = 0; i < waveformData.length; i += 1) {
-      total += waveformData[i];
+  context.save();
+  if (context.roundRect) {
+    context.beginPath();
+    context.roundRect(0, 0, width, height, 8);
+    context.clip();
+  }
+
+  surface = height * .32 + Math.sin(seconds * .8) * 2;
+  fill = context.createLinearGradient(0, surface, 0, height);
+  fill.addColorStop(0, "rgba(255,183,95,.92)");
+  fill.addColorStop(.42, "rgba(226,126,42,.88)");
+  fill.addColorStop(1, "rgba(167,73,22,.9)");
+
+  context.beginPath();
+  context.moveTo(0, height);
+  context.lineTo(0, surface);
+  for (i = 0; i <= width + 8; i += 8) {
+    wave = Math.sin(i * .024 + seconds * 1.8) * 4
+      + Math.sin(i * .052 - seconds * 1.15) * 2;
+    context.lineTo(i, surface + wave);
+  }
+  context.lineTo(width, height);
+  context.closePath();
+  context.fillStyle = fill;
+  context.fill();
+
+  context.beginPath();
+  for (i = 0; i <= width + 8; i += 8) {
+    wave = Math.sin(i * .024 + seconds * 1.8) * 4
+      + Math.sin(i * .052 - seconds * 1.15) * 2;
+    if (i === 0) {
+      context.moveTo(i, surface + wave);
+    } else {
+      context.lineTo(i, surface + wave);
     }
-    hasWaveform = total > 0;
   }
+  context.strokeStyle = "rgba(255,228,176,.72)";
+  context.lineWidth = 2;
+  context.stroke();
 
-  if (!hasWaveform) {
-    requestAnimationFrame(drawVisualizer);
-    return;
-  }
-
-  for (i = 0; i < bars; i += 1) {
-    values[i] = waveformData[Math.floor(i / bars * waveformData.length)] / 255;
-  }
-
-  barWidth = Math.max(3, (width - gap * (bars - 1)) / bars);
-
-  for (i = 0; i < bars; i += 1) {
-    var value = values[i];
-    var barHeight = Math.max(5, value * (height - 16));
-    var x = i * (barWidth + gap);
-    var y = (height - barHeight) / 2;
-    var accentMix = i / bars;
-
-    context.fillStyle = i % 7 === 0
-      ? "rgba(255,138,36," + (.36 + accentMix * .44).toFixed(3) + ")"
-      : "rgba(88,101,120," + (.24 + value * .46).toFixed(3) + ")";
-    drawBar(context, x, y, barWidth, barHeight, Math.min(6, barWidth / 2));
-  }
+  context.font = "900 " + Math.max(24, Math.min(42, height * .48)) + "px Segoe UI, system-ui, sans-serif";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.shadowColor = "rgba(112,47,11,.38)";
+  context.shadowBlur = 10;
+  context.fillStyle = "rgba(255,248,235,.96)";
+  context.fillText(timeText, width / 2, surface + (height - surface) * .55);
+  context.restore();
 
   requestAnimationFrame(drawVisualizer);
 }
@@ -841,7 +758,6 @@ function bindPlayerEvents() {
   });
   player.addEventListener("pause", function () {
     updatePlaybackStatus("PAUSED");
-    cleanupWaveformAnalyzer();
   });
   player.addEventListener("waiting", function () {
     updatePlaybackStatus("LOADING");
