@@ -99,6 +99,31 @@ input[type="radio"]{
 @-webkit-keyframes tremolo{0%{-webkit-transform:translateY(.5px) translateX(-.5px) scale(1) skewY(1deg) skewX(-1deg);transform:translateY(.5px) translateX(-.5px) scale(1) skewY(1deg) skewX(-1deg)}50%{-webkit-transform:translateX(0) translateY(0) scale(1.1) skewY(0) skewX(0);transform:translateX(0) translateY(0) scale(1.1) skewY(0) skewX(0)}90%{-webkit-transform:translateY(-.5px) translateX(.5px) scale(1) skewY(1deg) skewX(-1deg);transform:translateY(-.5px) translateX(.5px) scale(1) skewY(1deg) skewX(-1deg)}100%{-webkit-transform:none;transform:none}}@keyframes tremolo{0%{-webkit-transform:translateY(.5px) translateX(-.5px) scale(1) skewY(1deg) skewX(-1deg);transform:translateY(.5px) translateX(-.5px) scale(1) skewY(1deg) skewX(-1deg)}50%{-webkit-transform:translateX(0) translateY(0) scale(1.1) skewY(0) skewX(0);transform:translateX(0) translateY(0) scale(1.1) skewY(0) skewX(0)}90%{-webkit-transform:translateY(-.5px) translateX(.5px) scale(1) skewY(1deg) skewX(-1deg);transform:translateY(-.5px) translateX(.5px) scale(1) skewY(1deg) skewX(-1deg)}100%{-webkit-transform:none;transform:none}}.radiobox-tremolo:checked{-webkit-animation:tremolo 65ms linear;animation:tremolo 65ms linear;-webkit-animation-iteration-count:7;animation-iteration-count:7}
 
 .container {text-align: center;}
+
+input.stream-checking {
+  accent-color: #f2c94c;
+  outline: 2px solid rgba(242,201,76,.9);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+input.stream-ok {
+  accent-color: #33d17a;
+  outline: 2px solid rgba(51,209,122,.85);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+input.stream-dead {
+  accent-color: #ff4f5e;
+  outline: 2px solid rgba(255,79,94,.95);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+input.stream-unknown {
+  accent-color: #a0a7b4;
+  outline: 2px solid rgba(160,167,180,.85);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
 </style>
 </head>
 
@@ -174,6 +199,35 @@ var channels = [
   { name: "Radio Pro-B Romania", url: "https://live.radioprob.ro:8888/stream?icy=https" }
 ];
 
+var channelButtons = [];
+
+function setChannelState(index, state, detail) {
+  var button = channelButtons[index];
+  var channel = channels[index];
+  var label = "Channel " + (index + 1) + ": " + channel.name;
+
+  if (!button) return;
+
+  button.classList.remove("stream-checking", "stream-ok", "stream-dead", "stream-unknown");
+  button.dataset.streamState = state;
+
+  if (state) {
+    button.classList.add("stream-" + state);
+  }
+
+  if (state === "ok") {
+    button.title = label + " - OK";
+  } else if (state === "dead") {
+    button.title = label + " - Not reachable" + (detail ? " (" + detail + ")" : "");
+  } else if (state === "unknown") {
+    button.title = label + " - Check unavailable" + (detail ? " (" + detail + ")" : "");
+  } else if (state === "checking") {
+    button.title = label + " - Checking";
+  } else {
+    button.title = label;
+  }
+}
+
 function playChannel(index) {
   var channel = channels[index];
   var player = document.getElementById("music");
@@ -187,6 +241,7 @@ function playChannel(index) {
   if (playback && typeof playback.catch === "function") {
     playback.catch(function (error) {
       console.warn("Playback failed:", channel.name, error);
+      setChannelState(index, "dead", "playback failed");
     });
   }
 }
@@ -206,6 +261,7 @@ function renderChannelButtons() {
       playChannel(index);
     });
     container.appendChild(input);
+    channelButtons[index] = input;
 
     if ((index + 1) % 10 === 0) {
       container.appendChild(document.createElement("br"));
@@ -213,7 +269,96 @@ function renderChannelButtons() {
   });
 }
 
+function checkChannel(index) {
+  return new Promise(function (resolve) {
+    var channel = channels[index];
+    var probe = document.createElement("audio");
+    var finished = false;
+    var timer = null;
+    var interval = null;
+
+    function cleanup() {
+      clearTimeout(timer);
+      clearInterval(interval);
+      probe.pause();
+      probe.removeAttribute("src");
+      probe.load();
+      if (probe.parentNode) {
+        probe.parentNode.removeChild(probe);
+      }
+    }
+
+    function finish(state, detail) {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      setChannelState(index, state, detail);
+      resolve({ index: index, state: state, detail: detail });
+    }
+
+    setChannelState(index, "checking");
+
+    probe.muted = true;
+    probe.preload = "none";
+    probe.src = channel.url;
+    probe.style.display = "none";
+    document.body.appendChild(probe);
+
+    probe.addEventListener("error", function () {
+      finish("dead", "media error");
+    });
+
+    var playback = probe.play();
+    if (playback && typeof playback.catch === "function") {
+      playback.catch(function (error) {
+        if (finished) return;
+
+        if (error && error.name === "NotAllowedError") {
+          finish("unknown", "autoplay blocked");
+        }
+      });
+    }
+
+    interval = setInterval(function () {
+      if (probe.error) {
+        finish("dead", "media error");
+      } else if (!probe.paused && probe.readyState >= 3 && probe.currentTime > 0.2) {
+        finish("ok");
+      }
+    }, 200);
+
+    timer = setTimeout(function () {
+      finish("dead", "timeout");
+    }, 6500);
+  });
+}
+
+function checkAllChannels() {
+  var nextIndex = 0;
+  var active = 0;
+  var maxActive = 8;
+
+  function runNext() {
+    while (active < maxActive && nextIndex < channels.length) {
+      active += 1;
+      checkChannel(nextIndex).then(function () {
+        active -= 1;
+        runNext();
+      });
+      nextIndex += 1;
+    }
+  }
+
+  runNext();
+}
+
 renderChannelButtons();
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", checkAllChannels);
+} else {
+  checkAllChannels();
+}
 </script>
 </body>
 </html>
