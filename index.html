@@ -1,149 +1,386 @@
 <!doctype html>
-<html>
+<html lang="ja">
 <head>
-
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ラジオボタン</title>
 
 <style type="text/css">
-*, *:after, *:before {
+:root {
+  --page: #eef1f6;
+  --paper: #f7f9fc;
+  --paper-bright: #ffffff;
+  --ink: #232b3a;
+  --muted: #77859a;
+  --shadow: #c7d0dd;
+  --highlight: #ffffff;
+  --accent: #d88b3d;
+  --accent-hot: #ffb35f;
+  --ok: #2eb872;
+  --checking: #e4b83f;
+  --dead: #ff5364;
+  --unknown: #9aa6b6;
+}
+
+*,
+*:before,
+*:after {
   box-sizing: border-box;
-  -moz-box-sizing: border-box;
 }
-* {margin:0;padding:0;border: 0 none;position: relative;}
- 
+
 html {
-  background: url(image/bg2.jpg) 0 0 no-repeat ;
-  background-position: center center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  background-size: cover;
-  background-color: #464646;
-}
-body {
-  width: 100%;
   min-height: 100%;
-  background: inherit;
+  background: var(--page);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  padding: clamp(16px, 4vw, 42px) 16px 136px;
+  color: var(--ink);
+  font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background:
+    radial-gradient(circle at 30% 0%, rgba(255,255,255,.96), rgba(255,255,255,0) 35%),
+    linear-gradient(145deg, #fbfcff 0%, #e9eef5 58%, #f9fbfd 100%);
+  overflow-x: hidden;
+}
+
+button {
+  font: inherit;
+}
+
+.app-shell {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.radio-panel {
+  width: 100%;
+  min-height: calc(100vh - 196px);
+  padding: clamp(18px, 4vw, 34px);
+  border: 1px solid rgba(255,255,255,.74);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 28% 8%, rgba(255,255,255,.88), rgba(255,255,255,0) 30%),
+    linear-gradient(145deg, #f8fafc, #e7edf5);
+  box-shadow:
+    32px 32px 70px rgba(186,196,211,.82),
+    -26px -26px 58px rgba(255,255,255,.98),
+    inset 1px 1px 0 rgba(255,255,255,.98),
+    inset -1px -1px 0 rgba(191,201,216,.18);
+}
+
+.health-summary {
+  width: fit-content;
+  min-width: 128px;
+  margin: 0 0 16px auto;
+  padding: 12px 14px;
+  border-radius: 8px;
+  color: #4d5b70;
+  font-size: .82rem;
+  font-weight: 800;
+  text-align: right;
+  background: linear-gradient(145deg, #e7edf5, #fbfcff);
+  box-shadow:
+    8px 8px 18px rgba(196,205,218,.74),
+    -8px -8px 18px rgba(255,255,255,.94),
+    inset 1px 1px 0 rgba(255,255,255,.9);
+}
+
+.now-playing {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+  padding: 13px 16px;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #e6ecf4, #fbfcff);
+  box-shadow:
+    inset 9px 9px 18px rgba(194,203,216,.72),
+    inset -9px -9px 18px rgba(255,255,255,.94);
+}
+
+.now-label {
+  min-width: 46px;
+  color: #748297;
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+#currentChannel {
+  min-width: 0;
   overflow: hidden;
+  color: #263247;
+  font-size: clamp(.96rem, 2.2vw, 1.08rem);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-article {
-  background: inherit;
+.channel-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(54px, 1fr));
+  gap: clamp(10px, 1.7vw, 18px);
+  padding: clamp(14px, 3vw, 26px);
+  border-radius: 8px;
+  background: linear-gradient(145deg, #e7edf5, #f8fbff);
+  box-shadow:
+    inset 14px 14px 30px rgba(190,199,213,.74),
+    inset -14px -14px 30px rgba(255,255,255,.98);
+}
+
+.channel-switch {
   position: relative;
-  width: 300px;
-  margin: 10vh auto 15vh;
-  border-radius: 15px;
-  border: 10px solid rgba(255,255,255,.15);
-  box-shadow: 1px 1px 4px rgba(0,0,0,.3);
-  z-index: 5;
-  font-size: 1.5rem;
-}
-article:before {
-  content: '';
-  position: absolute;
-  top: 0; left:0; right:0; bottom:0;
-  background: inherit;
-  filter: blur(5px);
-  -webkit-filter: blur(6px);
-  -moz-filter: blur(6px);
-  -o-filter: blur(6px);
-  -ms-filter: blur(6px);
-  filter: url(#blur);filter:progid:DXImageTransform.Microsoft.Blur(PixelRadius='6');
-}
- 
-svg {
-  height:0;
-  width: 0;
-  position: absolute;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  aspect-ratio: 1 / .72;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,.8);
+  border-radius: 8px;
+  color: #2d3748;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), rgba(255,255,255,0) 36%),
+    linear-gradient(145deg, #fbfdff, #e2e9f2);
+  box-shadow:
+    12px 12px 24px rgba(188,198,212,.78),
+    -11px -11px 22px rgba(255,255,255,.98),
+    inset 1px 1px 0 rgba(255,255,255,.98);
+  transition:
+    transform .42s cubic-bezier(.18, .95, .2, 1),
+    box-shadow .42s cubic-bezier(.18, .95, .2, 1),
+    border-color .24s ease,
+    background .24s ease;
 }
 
-body::before{
-  content: '';
-  display:block;
-  padding-top:10%;
+.channel-switch:hover {
+  transform: translateY(-1px);
 }
 
-input[type=radio]:focus {
-  box-shadow: 0 0 30px royalblue;
-  border-radius:20px;
-}
-input[type=radio]:focus:checked{
-  box-shadow:none;
-}
-
-input[type=radio] {
-  border: 0px;
+.channel-switch:active {
+  transform: translateY(1px) scale(.99);
+  box-shadow:
+    inset 8px 8px 16px rgba(188,198,212,.82),
+    inset -8px -8px 16px rgba(255,255,255,.96);
 }
 
-.slogan{
-  font-size: 13px;
-  color: rgba(0,0,0, .3);
+.channel-switch:focus-visible {
+  outline: 3px solid rgba(255,138,36,.42);
+  outline-offset: 4px;
 }
 
-input[type="radio"]{
-  margin-right:3px;
-  margin-left: 0px;
+.toggle-track {
   position: relative;
+  width: min(82px, 100%);
+  height: clamp(30px, 4.2vw, 42px);
+  padding: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255,255,255,.12), rgba(255,255,255,0) 30%),
+    linear-gradient(145deg, #303844, #070b12 72%);
+  box-shadow:
+    inset 8px 8px 13px rgba(0,0,0,.52),
+    inset -5px -5px 10px rgba(255,255,255,.13),
+    0 8px 14px rgba(52,62,77,.16);
 }
 
-/*
- * radiobox.css
- * v1.0.1
- *
- * Tiny set of CSS3 animations for your radio inputs.
- * https://github.com/720kb/
- *
- * MIT license
- * Thu Sep 15 2016
- */
-@-webkit-keyframes tremolo{0%{-webkit-transform:translateY(.5px) translateX(-.5px) scale(1) skewY(1deg) skewX(-1deg);transform:translateY(.5px) translateX(-.5px) scale(1) skewY(1deg) skewX(-1deg)}50%{-webkit-transform:translateX(0) translateY(0) scale(1.1) skewY(0) skewX(0);transform:translateX(0) translateY(0) scale(1.1) skewY(0) skewX(0)}90%{-webkit-transform:translateY(-.5px) translateX(.5px) scale(1) skewY(1deg) skewX(-1deg);transform:translateY(-.5px) translateX(.5px) scale(1) skewY(1deg) skewX(-1deg)}100%{-webkit-transform:none;transform:none}}@keyframes tremolo{0%{-webkit-transform:translateY(.5px) translateX(-.5px) scale(1) skewY(1deg) skewX(-1deg);transform:translateY(.5px) translateX(-.5px) scale(1) skewY(1deg) skewX(-1deg)}50%{-webkit-transform:translateX(0) translateY(0) scale(1.1) skewY(0) skewX(0);transform:translateX(0) translateY(0) scale(1.1) skewY(0) skewX(0)}90%{-webkit-transform:translateY(-.5px) translateX(.5px) scale(1) skewY(1deg) skewX(-1deg);transform:translateY(-.5px) translateX(.5px) scale(1) skewY(1deg) skewX(-1deg)}100%{-webkit-transform:none;transform:none}}.radiobox-tremolo:checked{-webkit-animation:tremolo 65ms linear;animation:tremolo 65ms linear;-webkit-animation-iteration-count:7;animation-iteration-count:7}
+.toggle-fill {
+  position: absolute;
+  inset: 5px auto 5px 8px;
+  width: 40%;
+  border-radius: 999px;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 68% 50%, rgba(255,214,154,.95), rgba(255,214,154,0) 38%),
+    linear-gradient(90deg, rgba(216,139,61,.98), rgba(255,179,95,.18));
+  filter: blur(.2px);
+  transition: opacity .34s ease, transform .42s cubic-bezier(.18, .95, .22, 1);
+}
 
-.container {text-align: center;}
+.toggle-thumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: calc(50% - 6px);
+  height: calc(100% - 8px);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 66% 33%, rgba(255,255,255,.96) 0 12%, rgba(255,255,255,0) 28%),
+    linear-gradient(145deg, #ffffff 0%, #eef2f6 38%, #b9c2ce 100%);
+  box-shadow:
+    8px 8px 14px rgba(0,0,0,.38),
+    -4px -4px 9px rgba(255,255,255,.34),
+    inset 1px 1px 2px rgba(255,255,255,.92),
+    inset -2px -2px 4px rgba(134,145,160,.24);
+  transition:
+    transform .46s cubic-bezier(.18, .95, .22, 1),
+    box-shadow .34s ease,
+    background .34s ease;
+}
 
-input.stream-checking {
-  accent-color: #f2c94c;
-  outline: 2px solid rgba(242,201,76,.9);
-  outline-offset: 2px;
-  border-radius: 50%;
+.channel-switch.is-active {
+  border-color: rgba(255,138,36,.36);
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255,255,255,.92), rgba(255,255,255,0) 38%),
+    linear-gradient(145deg, #ffffff, #e9eef6);
+  box-shadow:
+    13px 13px 26px rgba(188,198,212,.78),
+    -11px -11px 24px rgba(255,255,255,.98),
+    0 0 0 5px rgba(216,139,61,.12);
 }
-input.stream-ok {
-  accent-color: #33d17a;
-  outline: 2px solid rgba(51,209,122,.85);
-  outline-offset: 2px;
-  border-radius: 50%;
+
+.channel-switch.is-active .toggle-fill {
+  opacity: 1;
+  transform: translateX(26%);
 }
-input.stream-dead {
-  accent-color: #ff4f5e;
-  outline: 2px solid rgba(255,79,94,.95);
-  outline-offset: 2px;
-  border-radius: 50%;
+
+.channel-switch.is-active .toggle-thumb {
+  transform: translateX(calc(100% + 4px));
+  box-shadow:
+    -8px 8px 16px rgba(0,0,0,.34),
+    3px -3px 10px rgba(255,255,255,.22),
+    inset 1px 1px 2px rgba(255,255,255,.9),
+    inset -2px -2px 4px rgba(134,145,160,.22);
 }
-input.stream-unknown {
-  accent-color: #a0a7b4;
-  outline: 2px solid rgba(160,167,180,.85);
-  outline-offset: 2px;
+
+.channel-switch.stream-dead {
+  border-color: rgba(255,83,100,.46);
+  box-shadow:
+    8px 8px 17px rgba(197,205,218,.74),
+    -8px -8px 17px rgba(255,255,255,.9),
+    0 0 0 4px rgba(255,83,100,.12);
+}
+
+.visualizer-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 14px;
+  left: 16px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(78px, 118px) 1fr;
+  align-items: center;
+  gap: 14px;
+  width: min(1120px, calc(100% - 32px));
+  height: 92px;
+  margin: 0 auto;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,.78);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 24% 0%, rgba(255,255,255,.82), rgba(255,255,255,0) 38%),
+    linear-gradient(145deg, rgba(250,252,255,.96), rgba(226,233,243,.96));
+  box-shadow:
+    17px 17px 38px rgba(190,199,213,.88),
+    -14px -14px 32px rgba(255,255,255,.96),
+    inset 1px 1px 0 rgba(255,255,255,.94);
+  backdrop-filter: blur(12px);
+}
+
+.visualizer-meta {
+  display: grid;
+  gap: 5px;
+  color: #5c6a7d;
+  font-size: .74rem;
+  font-weight: 900;
+}
+
+.visualizer-dot {
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
+  background: var(--unknown);
+  box-shadow:
+    3px 3px 7px rgba(191,200,214,.9),
+    -3px -3px 7px rgba(255,255,255,.94);
+}
+
+.visualizer-dot.is-playing {
+  background: var(--accent);
+  box-shadow:
+    0 0 18px rgba(216,139,61,.72),
+    3px 3px 7px rgba(191,200,214,.72),
+    -3px -3px 7px rgba(255,255,255,.9);
+}
+
+#visualizerCanvas {
+  display: block;
+  width: 100%;
+  height: 58px;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #e4ebf4, #fbfcff);
+  box-shadow:
+    inset 8px 8px 16px rgba(199,207,220,.86),
+    inset -8px -8px 16px rgba(255,255,255,.95);
+}
+
+#music {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  body {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .health-summary {
+    width: 100%;
+    margin-right: 0;
+    text-align: left;
+  }
+
+  .channel-grid {
+    grid-template-columns: repeat(5, minmax(44px, 1fr));
+    gap: 12px;
+  }
+
+  .visualizer-panel {
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    width: calc(100% - 20px);
+    height: 120px;
+  }
+
+  .visualizer-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
 }
 </style>
 </head>
 
 <body>
-    <article>
-        <ul class="container">
-            <h1>Choose Channel</h1>
-            <div class="button" id="channelButtons"></div>
-        </ul>
-      </article>
-         
-        <svg version="1.1" xmlns='http://www.w3.org/2000/svg'>
-         <filter id='blur'>
-           <feGaussianBlur stdDeviation='6' />
-           </filter>
-        </svg>
+<main class="app-shell">
+  <article class="radio-panel" aria-label="Radio channel player">
+    <div class="health-summary" id="healthSummary">CHECKING</div>
 
-<audio id="music" preload="none">
-  <source src="https://live.radiomegahit.eu:8080/stream?icy=https" type="audio/mpeg">
-</audio>
+    <div class="now-playing">
+      <span class="now-label">NOW</span>
+      <span id="currentChannel">Standby</span>
+    </div>
+
+    <div class="channel-grid" id="channelButtons"></div>
+  </article>
+</main>
+
+<footer class="visualizer-panel" aria-label="Audio visualizer">
+  <div class="visualizer-meta">
+    <span class="visualizer-dot" id="visualizerDot"></span>
+    <span id="visualizerState">STANDBY</span>
+  </div>
+  <canvas id="visualizerCanvas"></canvas>
+</footer>
+
+<audio id="music" preload="none" src="https://live.radiomegahit.eu:8080/stream?icy=https"></audio>
 
 <script>
 var channels = [
@@ -200,11 +437,29 @@ var channels = [
 ];
 
 var channelButtons = [];
+var activeChannelIndex = null;
+var audioContext = null;
+var analyser = null;
+var sourceNode = null;
+var frequencyData = null;
+var visualizerReady = false;
+var fallbackVisualizer = true;
+
+function updateHealthSummary() {
+  var counts = channelButtons.reduce(function (result, button) {
+    var state = button.dataset.streamState || "pending";
+    result[state] = (result[state] || 0) + 1;
+    return result;
+  }, {});
+  var summary = document.getElementById("healthSummary");
+
+  if (!summary) return;
+  summary.textContent = "OK " + (counts.ok || 0) + " / NG " + (counts.dead || 0);
+}
 
 function setChannelState(index, state, detail) {
   var button = channelButtons[index];
-  var channel = channels[index];
-  var label = "Channel " + (index + 1) + ": " + channel.name;
+  var label = "Channel " + String(index + 1).padStart(2, "0");
 
   if (!button) return;
 
@@ -226,21 +481,81 @@ function setChannelState(index, state, detail) {
   } else {
     button.title = label;
   }
+
+  updateHealthSummary();
+}
+
+function setActiveChannel(index) {
+  activeChannelIndex = index;
+  channelButtons.forEach(function (button, buttonIndex) {
+    var active = buttonIndex === index;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function updatePlaybackStatus(status) {
+  var state = document.getElementById("visualizerState");
+  var dot = document.getElementById("visualizerDot");
+
+  if (state) {
+    state.textContent = status;
+  }
+
+  if (dot) {
+    dot.classList.toggle("is-playing", status === "PLAYING");
+  }
+}
+
+function setupVisualizer() {
+  var player = document.getElementById("music");
+  var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+  if (!player || !AudioContextClass || visualizerReady) return;
+
+  try {
+    audioContext = new AudioContextClass();
+    sourceNode = audioContext.createMediaElementSource(player);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 128;
+    analyser.smoothingTimeConstant = .82;
+    sourceNode.connect(analyser);
+    analyser.connect(audioContext.destination);
+    frequencyData = new Uint8Array(analyser.frequencyBinCount);
+    visualizerReady = true;
+  } catch (error) {
+    fallbackVisualizer = true;
+    console.warn("Audio visualizer fallback:", error);
+  }
 }
 
 function playChannel(index) {
   var channel = channels[index];
   var player = document.getElementById("music");
+  var current = document.getElementById("currentChannel");
 
   if (!channel || !player) return;
 
+  setActiveChannel(index);
+  setupVisualizer();
+
+  if (audioContext && audioContext.state === "suspended") {
+    audioContext.resume();
+  }
+
+  if (current) {
+    current.textContent = "CHANNEL " + String(index + 1).padStart(2, "0");
+  }
+
   player.src = channel.url;
   player.load();
+  updatePlaybackStatus("LOADING");
 
   var playback = player.play();
   if (playback && typeof playback.catch === "function") {
     playback.catch(function (error) {
       console.warn("Playback failed:", channel.name, error);
+      updatePlaybackStatus("ERROR");
       setChannelState(index, "dead", "playback failed");
     });
   }
@@ -251,22 +566,32 @@ function renderChannelButtons() {
   if (!container) return;
 
   channels.forEach(function (channel, index) {
-    var input = document.createElement("input");
-    input.name = "checkit";
-    input.type = "radio";
-    input.className = "radiobox-tremolo";
-    input.title = (index + 1) + ". " + channel.name;
-    input.setAttribute("aria-label", "Channel " + (index + 1) + ": " + channel.name);
-    input.addEventListener("click", function () {
+    var button = document.createElement("button");
+    var track = document.createElement("span");
+    var fill = document.createElement("span");
+    var thumb = document.createElement("span");
+
+    button.type = "button";
+    button.className = "channel-switch";
+    button.title = "Channel " + String(index + 1).padStart(2, "0");
+    button.setAttribute("aria-label", "Channel " + String(index + 1).padStart(2, "0"));
+    button.setAttribute("aria-pressed", "false");
+
+    track.className = "toggle-track";
+    fill.className = "toggle-fill";
+    thumb.className = "toggle-thumb";
+
+    track.appendChild(fill);
+    track.appendChild(thumb);
+    button.appendChild(track);
+    button.addEventListener("click", function () {
       playChannel(index);
     });
-    container.appendChild(input);
-    channelButtons[index] = input;
-
-    if ((index + 1) % 10 === 0) {
-      container.appendChild(document.createElement("br"));
-    }
+    container.appendChild(button);
+    channelButtons[index] = button;
   });
+
+  updateHealthSummary();
 }
 
 function checkChannel(index) {
@@ -352,7 +677,119 @@ function checkAllChannels() {
   runNext();
 }
 
+function resizeCanvas(canvas, context) {
+  var ratio = window.devicePixelRatio || 1;
+  var width = Math.max(1, Math.floor(canvas.clientWidth * ratio));
+  var height = Math.max(1, Math.floor(canvas.clientHeight * ratio));
+
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+}
+
+function drawBar(context, x, y, width, height, radius) {
+  if (context.roundRect) {
+    context.beginPath();
+    context.roundRect(x, y, width, height, radius);
+    context.fill();
+    return;
+  }
+
+  context.fillRect(x, y, width, height);
+}
+
+function drawVisualizer() {
+  var canvas = document.getElementById("visualizerCanvas");
+  var player = document.getElementById("music");
+  var context = canvas && canvas.getContext("2d");
+  var playing = player && !player.paused && !player.ended;
+  var values = [];
+  var total = 0;
+  var useAnalyser = false;
+  var width;
+  var height;
+  var bars = 46;
+  var gap = 5;
+  var barWidth;
+  var now = performance.now() / 1000;
+  var i;
+
+  if (!canvas || !context) {
+    requestAnimationFrame(drawVisualizer);
+    return;
+  }
+
+  resizeCanvas(canvas, context);
+  width = canvas.clientWidth;
+  height = canvas.clientHeight;
+  context.clearRect(0, 0, width, height);
+
+  if (analyser && frequencyData && playing) {
+    analyser.getByteFrequencyData(frequencyData);
+    for (i = 0; i < frequencyData.length; i += 1) {
+      total += frequencyData[i];
+    }
+    useAnalyser = total > 0;
+  }
+
+  for (i = 0; i < bars; i += 1) {
+    if (useAnalyser) {
+      values[i] = frequencyData[Math.floor(i / bars * frequencyData.length)] / 255;
+    } else if (playing || fallbackVisualizer) {
+      values[i] = playing
+        ? .24 + Math.pow(Math.sin(now * 2.4 + i * .47) * .5 + .5, 1.7) * .68
+        : .1 + Math.pow(Math.sin(now * 1.1 + i * .31) * .5 + .5, 2) * .16;
+    } else {
+      values[i] = .12;
+    }
+  }
+
+  barWidth = Math.max(3, (width - gap * (bars - 1)) / bars);
+
+  for (i = 0; i < bars; i += 1) {
+    var value = values[i];
+    var barHeight = Math.max(5, value * (height - 16));
+    var x = i * (barWidth + gap);
+    var y = (height - barHeight) / 2;
+    var accentMix = playing ? i / bars : 0;
+
+    context.fillStyle = playing && i % 7 === 0
+      ? "rgba(255,138,36," + (.36 + accentMix * .44).toFixed(3) + ")"
+      : "rgba(88,101,120," + (.24 + value * .46).toFixed(3) + ")";
+    drawBar(context, x, y, barWidth, barHeight, Math.min(6, barWidth / 2));
+  }
+
+  requestAnimationFrame(drawVisualizer);
+}
+
+function bindPlayerEvents() {
+  var player = document.getElementById("music");
+
+  if (!player) return;
+
+  player.addEventListener("playing", function () {
+    updatePlaybackStatus("PLAYING");
+  });
+  player.addEventListener("pause", function () {
+    updatePlaybackStatus("PAUSED");
+  });
+  player.addEventListener("waiting", function () {
+    updatePlaybackStatus("LOADING");
+  });
+  player.addEventListener("error", function () {
+    updatePlaybackStatus("ERROR");
+    if (activeChannelIndex !== null) {
+      setChannelState(activeChannelIndex, "dead", "playback failed");
+    }
+  });
+}
+
 renderChannelButtons();
+bindPlayerEvents();
+drawVisualizer();
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", checkAllChannels);
