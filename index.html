@@ -55,6 +55,7 @@ button {
 }
 
 .radio-panel {
+  position: relative;
   width: 100%;
   min-height: calc(100vh - 196px);
   padding: clamp(18px, 4vw, 34px);
@@ -71,20 +72,24 @@ button {
 }
 
 .health-summary {
+  position: absolute;
+  top: 16px;
+  right: 18px;
   width: fit-content;
-  min-width: 128px;
-  margin: 0 0 16px auto;
-  padding: 12px 14px;
+  min-width: 94px;
+  margin: 0;
+  padding: 8px 10px;
   border-radius: 8px;
-  color: #4d5b70;
-  font-size: .82rem;
+  color: rgba(77,91,112,.66);
+  font-size: .7rem;
   font-weight: 800;
   text-align: right;
-  background: linear-gradient(145deg, #e7edf5, #fbfcff);
+  background: linear-gradient(145deg, rgba(231,237,245,.7), rgba(251,252,255,.78));
   box-shadow:
-    8px 8px 18px rgba(196,205,218,.74),
-    -8px -8px 18px rgba(255,255,255,.94),
-    inset 1px 1px 0 rgba(255,255,255,.9);
+    5px 5px 13px rgba(196,205,218,.42),
+    -5px -5px 13px rgba(255,255,255,.72),
+    inset 1px 1px 0 rgba(255,255,255,.74);
+  letter-spacing: .02em;
 }
 
 .now-playing {
@@ -329,9 +334,8 @@ button {
   }
 
   .health-summary {
-    width: 100%;
-    margin-right: 0;
-    text-align: left;
+    top: 12px;
+    right: 12px;
   }
 
   .channel-grid {
@@ -705,9 +709,9 @@ function drawVisualizer() {
 
   surface = height * .32 + Math.sin(seconds * .8) * 2;
   fill = context.createLinearGradient(0, surface, 0, height);
-  fill.addColorStop(0, "rgba(255,183,95,.92)");
-  fill.addColorStop(.42, "rgba(226,126,42,.88)");
-  fill.addColorStop(1, "rgba(167,73,22,.9)");
+  fill.addColorStop(0, "rgba(255,204,126,.96)");
+  fill.addColorStop(.42, "rgba(245,151,55,.92)");
+  fill.addColorStop(1, "rgba(205,91,28,.9)");
 
   context.beginPath();
   context.moveTo(0, height);
@@ -732,7 +736,7 @@ function drawVisualizer() {
       context.lineTo(i, surface + wave);
     }
   }
-  context.strokeStyle = "rgba(255,228,176,.72)";
+  context.strokeStyle = "rgba(255,241,204,.86)";
   context.lineWidth = 2;
   context.stroke();
 
