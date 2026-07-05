@@ -308,8 +308,10 @@
         }
       }, 200);
 
+      /* タイムアウトは「死んでいる証拠」にはならない (遅い回線や
+         モバイルの自動再生制限でも起きる) ので unknown 扱いにする */
       timer = window.setTimeout(function () {
-        finish("dead", "timeout");
+        finish("unknown", "timeout");
       }, 8000);
     });
   }
@@ -431,39 +433,105 @@
     context.fillRect(sweepX - 50, 0, 56, height);
   }
 
-  /* 実スペクトラム: 中央線から上下対称に伸びる周波数バー */
-  function drawSpectrum(context, width, height) {
-    var barCount = Math.max(24, Math.min(64, Math.floor(width / 13)));
-    var step = width / barCount;
-    var maxIndex = freqData.length - 4;
-    var gradient = context.createLinearGradient(0, 0, 0, height);
+  /* 実スペクトラム: 周波数分布を上下対称の滑らかなリボン曲線で描く。
+     解析器がゼロしか返さない場合 (iOS WebKit の既知の制約) は false を
+     返し、呼び出し元がアンビエント波形へフォールバックする。 */
+  var SPECTRUM_POINTS = 36;
+  var spectrumValues = new Float32Array(SPECTRUM_POINTS);
+  var silentFrames = 0;
+
+  function traceRibbon(context, xs, ys, midY, sign, connect) {
+    var count = xs.length;
     var i;
-    var sampleIndex;
+
+    if (connect) {
+      context.lineTo(xs[0], midY + ys[0] * sign);
+    } else {
+      context.moveTo(xs[0], midY + ys[0] * sign);
+    }
+    for (i = 1; i < count - 1; i += 1) {
+      context.quadraticCurveTo(
+        xs[i], midY + ys[i] * sign,
+        (xs[i] + xs[i + 1]) / 2, midY + (ys[i] + ys[i + 1]) / 2 * sign
+      );
+    }
+    context.lineTo(xs[count - 1], midY + ys[count - 1] * sign);
+  }
+
+  function drawSpectrum(context, width, height) {
+    var midY = height / 2;
+    var maxIndex = freqData.length - 4;
+    var xs = [];
+    var ys = [];
+    var sum = 0;
+    var i;
+    var t;
     var value;
-    var barHeight;
-    var x;
-    var y;
+    var gradient;
 
     analyser.getByteFrequencyData(freqData);
-
-    gradient.addColorStop(0, "rgba(255,179,95,.9)");
-    gradient.addColorStop(0.5, "rgba(79,242,255,.95)");
-    gradient.addColorStop(1, "rgba(255,179,95,.9)");
-    context.fillStyle = gradient;
-
-    for (i = 0; i < barCount; i += 1) {
-      /* 低域に寄りがちなので対数寄りにサンプリングする */
-      sampleIndex = Math.floor(Math.pow(i / barCount, 1.6) * maxIndex) + 2;
-      value = freqData[sampleIndex] / 255;
-      barHeight = Math.max(2, value * (height - 6));
-      x = i * step + 1;
-      y = (height - barHeight) / 2;
-      context.fillRect(x, y, Math.max(1, step - 2), barHeight);
+    for (i = 0; i < freqData.length; i += 1) {
+      sum += freqData[i];
     }
 
-    /* 中央基準線 */
-    context.fillStyle = "rgba(79,242,255,.25)";
-    context.fillRect(0, height / 2, width, 1);
+    /* 完全な無音が続く = 解析器が機能していない環境とみなす */
+    if (sum < 1) {
+      silentFrames += 1;
+      if (silentFrames > 30) return false;
+    } else {
+      silentFrames = 0;
+    }
+
+    for (i = 0; i < SPECTRUM_POINTS; i += 1) {
+      t = i / (SPECTRUM_POINTS - 1);
+      /* 低域に寄りがちなので対数寄りにサンプリングし、両端を絞る */
+      value = freqData[Math.floor(Math.pow(t, 1.6) * maxIndex) + 2] / 255;
+      /* コントラストを上げて音の強弱を波の起伏に出やすくする */
+      value = Math.pow(value, 1.35);
+      value *= 0.2 + 0.8 * Math.pow(Math.sin(Math.PI * t), 0.7);
+      /* 時間方向にもならして波をとろりと動かす */
+      spectrumValues[i] += (value - spectrumValues[i]) * 0.28;
+      xs.push(t * width);
+      ys.push(Math.max(1.5, spectrumValues[i] * (midY - 3)));
+    }
+
+    gradient = context.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, "rgba(255,179,95,.34)");
+    gradient.addColorStop(0.5, "rgba(79,242,255,.4)");
+    gradient.addColorStop(1, "rgba(255,179,95,.34)");
+
+    context.beginPath();
+    traceRibbon(context, xs, ys, midY, -1);
+    traceRibbon(
+      context,
+      xs.slice().reverse(),
+      ys.slice().reverse(),
+      midY,
+      1,
+      true
+    );
+    context.closePath();
+    context.fillStyle = gradient;
+    context.fill();
+
+    /* 上側の輪郭線だけネオン発光させる */
+    context.save();
+    context.shadowColor = "rgba(79,242,255,.85)";
+    context.shadowBlur = 9;
+    context.beginPath();
+    traceRibbon(context, xs, ys, midY, -1);
+    context.strokeStyle = "rgba(79,242,255,.95)";
+    context.lineWidth = 1.6;
+    context.stroke();
+    context.restore();
+
+    context.beginPath();
+    traceRibbon(context, xs, ys, midY, 1);
+    context.strokeStyle = "rgba(255,179,95,.5)";
+    context.lineWidth = 1.1;
+    context.stroke();
+
+    return true;
   }
 
   function drawVisualizer() {
@@ -473,6 +541,7 @@
     var width;
     var height;
     var live;
+    var drawn = false;
 
     if (!canvas || !context) return;
 
@@ -488,8 +557,12 @@
       && playbackStatus === "PLAYING";
 
     if (live) {
-      drawSpectrum(context, width, height);
-    } else {
+      drawn = drawSpectrum(context, width, height);
+      if (!drawn) {
+        context.clearRect(0, 0, width, height);
+      }
+    }
+    if (!drawn) {
       drawAmbient(context, width, height, seconds);
     }
 
@@ -512,17 +585,24 @@
   }
 
   function shuffleChannel() {
-    var candidates = [];
+    var preferred = [];
+    var fallback = [];
+    var pool;
     var index;
 
     buttons.forEach(function (button, buttonIndex) {
-      if (buttonIndex !== activeIndex && button.dataset.streamState !== "dead") {
-        candidates.push(buttonIndex);
+      if (buttonIndex === activeIndex) return;
+      fallback.push(buttonIndex);
+      if (button.dataset.streamState !== "dead") {
+        preferred.push(buttonIndex);
       }
     });
-    if (!candidates.length) return;
 
-    index = candidates[Math.floor(Math.random() * candidates.length)];
+    /* NG 局を避けつつ、候補が無くても必ずどこかを選ぶ */
+    pool = preferred.length ? preferred : fallback;
+    if (!pool.length) return;
+
+    index = pool[Math.floor(Math.random() * pool.length)];
     playChannel(index);
     buttons[index].focus();
   }
