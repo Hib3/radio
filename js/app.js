@@ -583,9 +583,12 @@
     }
   }
 
+  var frameCount = 0;
+
   function drawVisualizer() {
     /* 描画中に何が起きてもループ自体は止めない (先に次フレームを予約) */
     window.requestAnimationFrame(drawVisualizer);
+    frameCount += 1;
     try {
       renderVisualizerFrame();
     } catch (error) {
@@ -594,6 +597,34 @@
         console.warn("Visualizer fell back to ambient mode:", error);
       }
     }
+  }
+
+  /* requestAnimationFrame が動かない環境向けの保険。
+     フレームが1秒以上進まなければ setInterval 駆動に切り替え、
+     rAF が復活したら自動で解除する */
+  function startVisualizerWatchdog() {
+    var lastCount = -1;
+    var fallbackTimer = null;
+
+    window.setInterval(function () {
+      var stalled = frameCount === lastCount;
+      lastCount = frameCount;
+
+      if (stalled && fallbackTimer === null) {
+        fallbackTimer = window.setInterval(function () {
+          try {
+            renderVisualizerFrame();
+          } catch (error) {
+            /* 描画は諦めるがタイマーは維持しない */
+            window.clearInterval(fallbackTimer);
+            fallbackTimer = null;
+          }
+        }, 40);
+      } else if (!stalled && fallbackTimer !== null) {
+        window.clearInterval(fallbackTimer);
+        fallbackTimer = null;
+      }
+    }, 1200);
   }
 
   /* ---------------------------------------------------------------
@@ -727,6 +758,7 @@
   renderClock();
   window.setInterval(renderClock, 250);
   window.requestAnimationFrame(drawVisualizer);
+  startVisualizerWatchdog();
 
   /* 通信量節約モードでは自動スキャンしない (SCAN ボタンで手動実行) */
   var connection = navigator.connection || {};
