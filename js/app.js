@@ -31,6 +31,12 @@
   var STORE_VOLUME = "radiodeck.volume";
   var STORE_CHANNEL = "radiodeck.channel";
 
+  /* iOS WebKit は MediaElementAudioSourceNode がストリーミング音源で
+     正しく動かない (解析データが常にゼロ / 音声が無音化することがある)
+     ため、iOS では Web Audio を使わず通常再生に固定する */
+  var IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
   function pad2(value) {
     return String(value).padStart(2, "0");
   }
@@ -94,7 +100,7 @@
   function ensureAudioGraph() {
     var AudioContextClass = window.AudioContext || window.webkitAudioContext;
 
-    if (!AudioContextClass) return;
+    if (IS_IOS || !AudioContextClass) return;
 
     if (!audioCtx) {
       try {
@@ -376,7 +382,7 @@
     if (playbackStatus === "PLAYING") return 1;
     if (playbackStatus === "LOADING") return 0.45;
     if (playbackStatus === "ERROR") return 0.05;
-    return 0.12;
+    return 0.16;
   }
 
   function resizeCanvas(canvas, context) {
@@ -413,9 +419,16 @@
 
   function drawAmbient(context, width, height, seconds) {
     var midY = height / 2;
-    var amp = height * 0.3 * energy + 1.2;
+    var amp = height * 0.3 * energy + 2.2;
     var sweepX = ((seconds * 90) % (width + 120)) - 60;
     var sweep;
+
+    /* エラー時は警告らしい赤の細かい波にして「壊れて静止」に見せない */
+    if (playbackStatus === "ERROR") {
+      drawWave(context, width, midY, 1.6, 9, seconds, "rgba(255,83,100,.85)", 1.4);
+      drawWave(context, width, midY, 1, 13, seconds + 2.4, "rgba(255,83,100,.35)", 1);
+      return;
+    }
 
     context.save();
     context.shadowColor = "rgba(79,242,255,.8)";
@@ -534,7 +547,9 @@
     return true;
   }
 
-  function drawVisualizer() {
+  var spectrumBroken = false;
+
+  function renderVisualizerFrame() {
     var canvas = document.getElementById("signalCanvas");
     var context = canvas && canvas.getContext("2d");
     var seconds = Date.now() / 1000;
@@ -552,7 +567,8 @@
     energy += (energyTarget() - energy) * 0.04;
     context.clearRect(0, 0, width, height);
 
-    live = analyser
+    live = !spectrumBroken
+      && analyser
       && currentElement === playerCors
       && playbackStatus === "PLAYING";
 
@@ -565,8 +581,19 @@
     if (!drawn) {
       drawAmbient(context, width, height, seconds);
     }
+  }
 
+  function drawVisualizer() {
+    /* 描画中に何が起きてもループ自体は止めない (先に次フレームを予約) */
     window.requestAnimationFrame(drawVisualizer);
+    try {
+      renderVisualizerFrame();
+    } catch (error) {
+      if (!spectrumBroken) {
+        spectrumBroken = true;
+        console.warn("Visualizer fell back to ambient mode:", error);
+      }
+    }
   }
 
   /* ---------------------------------------------------------------
@@ -653,6 +680,8 @@
       });
       element.addEventListener("pause", function () {
         if (element !== currentElement || activeIndex === null) return;
+        /* メディアエラー直後にも pause が飛んでくるので ERROR を上書きしない */
+        if (playbackStatus === "ERROR" || element.error) return;
         setPlaybackStatus("PAUSED");
       });
       element.addEventListener("error", function () {
