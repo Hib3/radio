@@ -1,9 +1,11 @@
 /*
- * RADIO DECK — application
+ * RADIO BUTTON — application
  *
  * 構成:
  *   1. チャンネルスイッチの生成 (template を複製)
  *   2. 再生 / 停止 (同じスイッチを再クリックで OFF)
+ *      - CORS 対応局は playerCors + Web Audio で実スペクトラムを解析
+ *      - 非対応局は playerPlain に自動フォールバック (解析なしで再生)
  *   3. 回線ヘルスチェック (SCAN)
  *   4. 時計ウィジェット / シグナルビジュアライザ
  *   5. 音量・シャッフル・キーボード操作
@@ -12,13 +14,19 @@
   "use strict";
 
   var stations = window.RADIO_STATIONS || [];
-  var player = document.getElementById("player");
+  var playerCors = document.getElementById("playerCors");
+  var playerPlain = document.getElementById("playerPlain");
   var grid = document.getElementById("channelGrid");
 
   var buttons = [];
   var activeIndex = null;
+  var currentElement = null;
   var playbackStatus = "IDLE";
   var scanning = false;
+
+  var audioCtx = null;
+  var analyser = null;
+  var freqData = null;
 
   var STORE_VOLUME = "radiodeck.volume";
   var STORE_CHANNEL = "radiodeck.channel";
@@ -71,9 +79,43 @@
     led.classList.toggle("is-error", error);
 
     if (live && activeIndex !== null) {
-      document.title = "▶ " + stations[activeIndex].name + " — RADIO DECK";
+      document.title = "▶ " + stations[activeIndex].name + " — RADIO BUTTON";
     } else {
-      document.title = "RADIO DECK — ラヂオボタン";
+      document.title = "RADIO BUTTON — ラヂオボタン";
+    }
+  }
+
+  /* ---------------------------------------------------------------
+   * Web Audio 解析器
+   * createMediaElementSource は CORS 承認済みメディアしか解析できない
+   * (未承認だと出力が無音化される) ため、crossorigin 付きの
+   * playerCors だけをグラフに接続する。
+   * ------------------------------------------------------------- */
+  function ensureAudioGraph() {
+    var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContextClass) return;
+
+    if (!audioCtx) {
+      try {
+        audioCtx = new AudioContextClass();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.82;
+        freqData = new Uint8Array(analyser.frequencyBinCount);
+        audioCtx.createMediaElementSource(playerCors).connect(analyser);
+        analyser.connect(audioCtx.destination);
+      } catch (error) {
+        console.warn("Web Audio unavailable:", error);
+        audioCtx = null;
+        analyser = null;
+        return;
+      }
+    }
+
+    /* iOS などはユーザー操作内で resume する必要がある */
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume();
     }
   }
 
@@ -89,16 +131,52 @@
     }, 620);
   }
 
+  function stopElement(element) {
+    element.pause();
+    element.removeAttribute("src");
+    element.load();
+  }
+
   function stopPlayback() {
     if (activeIndex !== null) {
       powerOff(buttons[activeIndex]);
     }
     activeIndex = null;
-    player.pause();
-    player.removeAttribute("src");
-    player.load();
+    currentElement = null;
+    stopElement(playerCors);
+    stopElement(playerPlain);
     setNowPanel(null, "STANDBY — チャンネルを選択してください", "");
     setPlaybackStatus("IDLE");
+  }
+
+  function startPlayback(index, element) {
+    currentElement = element;
+    element.src = stations[index].url;
+    element.load();
+
+    var playback = element.play();
+    if (playback && typeof playback.catch === "function") {
+      playback.catch(function (error) {
+        if (activeIndex !== index || currentElement !== element) return;
+        if (error && error.name === "AbortError") return;
+
+        if (element === playerCors && error && error.name === "NotSupportedError") {
+          fallbackToPlain(index);
+          return;
+        }
+        console.warn("Playback failed:", stations[index].name, error);
+        setPlaybackStatus("ERROR");
+        setChannelState(index, "dead", "playback failed");
+      });
+    }
+  }
+
+  /* CORS 経由で読めなかった局を通常再生でリトライする */
+  function fallbackToPlain(index) {
+    stations[index].noCors = true;
+    currentElement = null;
+    stopElement(playerCors);
+    startPlayback(index, playerPlain);
   }
 
   function playChannel(index) {
@@ -116,6 +194,10 @@
     }
 
     activeIndex = index;
+    currentElement = null;
+    stopElement(playerCors);
+    stopElement(playerPlain);
+
     buttons[index].classList.remove("is-powering-off");
     buttons[index].classList.add("is-active");
     buttons[index].setAttribute("aria-pressed", "true");
@@ -124,18 +206,8 @@
     setPlaybackStatus("LOADING");
     writeStore(STORE_CHANNEL, String(index));
 
-    player.src = station.url;
-    player.load();
-
-    var playback = player.play();
-    if (playback && typeof playback.catch === "function") {
-      playback.catch(function (error) {
-        if (activeIndex !== index) return;
-        console.warn("Playback failed:", station.name, error);
-        setPlaybackStatus("ERROR");
-        setChannelState(index, "dead", "playback failed");
-      });
-    }
+    ensureAudioGraph();
+    startPlayback(index, station.noCors || !analyser ? playerPlain : playerCors);
   }
 
   function renderChannelButtons() {
@@ -292,8 +364,9 @@
 
   /* ---------------------------------------------------------------
    * シグナルビジュアライザ
-   * 再生状態に反応するアンビエント波形 (実スペクトラムは CORS の
-   * 制約で全局には使えないため、状態駆動のアニメーションにしている)
+   * CORS 対応局の再生中は実際の周波数スペクトラムを描画し、
+   * それ以外 (フォールバック再生・待機中) は状態駆動の
+   * アンビエント波形にフォールバックする。
    * ------------------------------------------------------------- */
   var energy = 0.12;
 
@@ -336,27 +409,11 @@
     context.stroke();
   }
 
-  function drawVisualizer() {
-    var canvas = document.getElementById("signalCanvas");
-    var context = canvas && canvas.getContext("2d");
-    var seconds = Date.now() / 1000;
-    var width;
-    var height;
-    var midY;
-    var amp;
-    var sweepX;
-
-    if (!canvas || !context) return;
-
-    resizeCanvas(canvas, context);
-    width = canvas.clientWidth;
-    height = canvas.clientHeight;
-    midY = height / 2;
-
-    energy += (energyTarget() - energy) * 0.04;
-    amp = height * 0.3 * energy + 1.2;
-
-    context.clearRect(0, 0, width, height);
+  function drawAmbient(context, width, height, seconds) {
+    var midY = height / 2;
+    var amp = height * 0.3 * energy + 1.2;
+    var sweepX = ((seconds * 90) % (width + 120)) - 60;
+    var sweep;
 
     context.save();
     context.shadowColor = "rgba(79,242,255,.8)";
@@ -367,13 +424,74 @@
     drawWave(context, width, midY, amp * 0.65, 1.4, seconds + 1.7, "rgba(255,179,95,.55)", 1.2);
     drawWave(context, width, midY, amp * 0.4, 3.2, seconds + 4.2, "rgba(79,242,255,.28)", 1);
 
-    /* スイープバー */
-    sweepX = ((seconds * 90) % (width + 120)) - 60;
-    var sweep = context.createLinearGradient(sweepX - 50, 0, sweepX + 6, 0);
+    sweep = context.createLinearGradient(sweepX - 50, 0, sweepX + 6, 0);
     sweep.addColorStop(0, "rgba(79,242,255,0)");
     sweep.addColorStop(1, "rgba(79,242,255,.22)");
     context.fillStyle = sweep;
     context.fillRect(sweepX - 50, 0, 56, height);
+  }
+
+  /* 実スペクトラム: 中央線から上下対称に伸びる周波数バー */
+  function drawSpectrum(context, width, height) {
+    var barCount = Math.max(24, Math.min(64, Math.floor(width / 13)));
+    var step = width / barCount;
+    var maxIndex = freqData.length - 4;
+    var gradient = context.createLinearGradient(0, 0, 0, height);
+    var i;
+    var sampleIndex;
+    var value;
+    var barHeight;
+    var x;
+    var y;
+
+    analyser.getByteFrequencyData(freqData);
+
+    gradient.addColorStop(0, "rgba(255,179,95,.9)");
+    gradient.addColorStop(0.5, "rgba(79,242,255,.95)");
+    gradient.addColorStop(1, "rgba(255,179,95,.9)");
+    context.fillStyle = gradient;
+
+    for (i = 0; i < barCount; i += 1) {
+      /* 低域に寄りがちなので対数寄りにサンプリングする */
+      sampleIndex = Math.floor(Math.pow(i / barCount, 1.6) * maxIndex) + 2;
+      value = freqData[sampleIndex] / 255;
+      barHeight = Math.max(2, value * (height - 6));
+      x = i * step + 1;
+      y = (height - barHeight) / 2;
+      context.fillRect(x, y, Math.max(1, step - 2), barHeight);
+    }
+
+    /* 中央基準線 */
+    context.fillStyle = "rgba(79,242,255,.25)";
+    context.fillRect(0, height / 2, width, 1);
+  }
+
+  function drawVisualizer() {
+    var canvas = document.getElementById("signalCanvas");
+    var context = canvas && canvas.getContext("2d");
+    var seconds = Date.now() / 1000;
+    var width;
+    var height;
+    var live;
+
+    if (!canvas || !context) return;
+
+    resizeCanvas(canvas, context);
+    width = canvas.clientWidth;
+    height = canvas.clientHeight;
+
+    energy += (energyTarget() - energy) * 0.04;
+    context.clearRect(0, 0, width, height);
+
+    live = analyser
+      && currentElement === playerCors
+      && playbackStatus === "PLAYING";
+
+    if (live) {
+      drawSpectrum(context, width, height);
+    } else {
+      drawAmbient(context, width, height, seconds);
+    }
 
     window.requestAnimationFrame(drawVisualizer);
   }
@@ -385,7 +503,8 @@
     var slider = document.getElementById("volumeSlider");
     var clamped = Math.min(100, Math.max(0, value));
 
-    player.volume = clamped / 100;
+    playerCors.volume = clamped / 100;
+    playerPlain.volume = clamped / 100;
     slider.value = clamped;
     slider.style.setProperty("--vol", clamped + "%");
     document.getElementById("volumeValue").textContent = clamped;
@@ -443,19 +562,32 @@
   }
 
   function bindPlayerEvents() {
-    player.addEventListener("playing", function () {
-      setPlaybackStatus("PLAYING");
-    });
-    player.addEventListener("waiting", function () {
-      setPlaybackStatus("LOADING");
-    });
-    player.addEventListener("pause", function () {
-      if (activeIndex !== null) setPlaybackStatus("PAUSED");
-    });
-    player.addEventListener("error", function () {
-      if (activeIndex === null || !player.getAttribute("src")) return;
-      setPlaybackStatus("ERROR");
-      setChannelState(activeIndex, "dead", "playback failed");
+    [playerCors, playerPlain].forEach(function (element) {
+      element.addEventListener("playing", function () {
+        if (element !== currentElement) return;
+        setPlaybackStatus("PLAYING");
+      });
+      element.addEventListener("waiting", function () {
+        if (element !== currentElement) return;
+        setPlaybackStatus("LOADING");
+      });
+      element.addEventListener("pause", function () {
+        if (element !== currentElement || activeIndex === null) return;
+        setPlaybackStatus("PAUSED");
+      });
+      element.addEventListener("error", function () {
+        if (element !== currentElement || activeIndex === null) return;
+        if (!element.getAttribute("src")) return;
+
+        /* crossorigin 付きで読めない = CORS 非対応局の可能性が高いので
+           通常の audio 再生でリトライする */
+        if (element === playerCors) {
+          fallbackToPlain(activeIndex);
+          return;
+        }
+        setPlaybackStatus("ERROR");
+        setChannelState(activeIndex, "dead", "playback failed");
+      });
     });
   }
 

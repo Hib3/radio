@@ -61,8 +61,9 @@ window.RADIO_STATIONS = [
   { name: "Radio Paradise Global",      genre: "GLOBAL",     url: "https://stream.radioparadise.com/global-128" },
 
   // ---- Misc. long-runners ----
-  { name: "LISTEN.moe J-POP",           genre: "J-POP",      url: "https://listen.moe/stream" },
-  { name: "LISTEN.moe K-POP",           genre: "K-POP",      url: "https://listen.moe/kpop/stream" },
+  /* /stream は Ogg Vorbis で iOS Safari が非対応のため MP3 の /fallback を使う */
+  { name: "LISTEN.moe J-POP",           genre: "J-POP",      url: "https://listen.moe/fallback" },
+  { name: "LISTEN.moe K-POP",           genre: "K-POP",      url: "https://listen.moe/kpop/fallback" },
   { name: "KEXP 90.3 Seattle",          genre: "INDIE",      url: "https://kexp.streamguys1.com/kexp160.aac" },
   { name: "Dance Wave!",                genre: "DANCE",      url: "https://dancewave.online/dance.mp3" }
 ];

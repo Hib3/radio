@@ -681,7 +681,8 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-#player {
+#playerCors,
+#playerPlain {
   display: none;
 }
 
