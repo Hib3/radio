@@ -3,786 +3,122 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ラジオボタン</title>
+<meta name="description" content="ワンクリックでインターネットラジオが流れる50chコントロールデッキ">
+<title>RADIO DECK — ラヂオボタン</title>
 
-<style type="text/css">
-:root {
-  --page: #eef1f6;
-  --paper: #f7f9fc;
-  --paper-bright: #ffffff;
-  --ink: #232b3a;
-  --muted: #77859a;
-  --shadow: #c7d0dd;
-  --highlight: #ffffff;
-  --accent: #d88b3d;
-  --accent-hot: #ffb35f;
-  --ok: #2eb872;
-  --checking: #e4b83f;
-  --dead: #ff5364;
-  --unknown: #9aa6b6;
-}
-
-*,
-*:before,
-*:after {
-  box-sizing: border-box;
-}
-
-html {
-  min-height: 100%;
-  background: var(--page);
-}
-
-body {
-  min-height: 100vh;
-  margin: 0;
-  padding: clamp(16px, 4vw, 42px) 16px 136px;
-  color: var(--ink);
-  font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background:
-    radial-gradient(circle at 30% 0%, rgba(255,255,255,.96), rgba(255,255,255,0) 35%),
-    linear-gradient(145deg, #fbfcff 0%, #e9eef5 58%, #f9fbfd 100%);
-  overflow-x: hidden;
-}
-
-button {
-  font: inherit;
-}
-
-.app-shell {
-  width: min(1120px, 100%);
-  margin: 0 auto;
-}
-
-.radio-panel {
-  position: relative;
-  width: 100%;
-  min-height: calc(100vh - 196px);
-  padding: clamp(18px, 4vw, 34px);
-  border: 1px solid rgba(255,255,255,.74);
-  border-radius: 8px;
-  background:
-    radial-gradient(circle at 28% 8%, rgba(255,255,255,.88), rgba(255,255,255,0) 30%),
-    linear-gradient(145deg, #f8fafc, #e7edf5);
-  box-shadow:
-    32px 32px 70px rgba(186,196,211,.82),
-    -26px -26px 58px rgba(255,255,255,.98),
-    inset 1px 1px 0 rgba(255,255,255,.98),
-    inset -1px -1px 0 rgba(191,201,216,.18);
-}
-
-.health-summary {
-  position: absolute;
-  top: 16px;
-  right: 18px;
-  width: fit-content;
-  min-width: 94px;
-  margin: 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  color: rgba(77,91,112,.66);
-  font-size: .7rem;
-  font-weight: 800;
-  text-align: right;
-  background: linear-gradient(145deg, rgba(231,237,245,.7), rgba(251,252,255,.78));
-  box-shadow:
-    5px 5px 13px rgba(196,205,218,.42),
-    -5px -5px 13px rgba(255,255,255,.72),
-    inset 1px 1px 0 rgba(255,255,255,.74);
-  letter-spacing: .02em;
-}
-
-.now-playing {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 26px;
-  padding: 13px 16px;
-  border-radius: 8px;
-  background: linear-gradient(145deg, #e6ecf4, #fbfcff);
-  box-shadow:
-    inset 9px 9px 18px rgba(194,203,216,.72),
-    inset -9px -9px 18px rgba(255,255,255,.94);
-}
-
-.now-label {
-  min-width: 46px;
-  color: #748297;
-  font-size: .72rem;
-  font-weight: 900;
-}
-
-#currentChannel {
-  min-width: 0;
-  overflow: hidden;
-  color: #263247;
-  font-size: clamp(.96rem, 2.2vw, 1.08rem);
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.channel-grid {
-  display: grid;
-  grid-template-columns: repeat(10, minmax(54px, 1fr));
-  gap: clamp(10px, 1.7vw, 18px);
-  padding: clamp(14px, 3vw, 26px);
-  border-radius: 8px;
-  background: linear-gradient(145deg, #e7edf5, #f8fbff);
-  box-shadow:
-    inset 14px 14px 30px rgba(190,199,213,.74),
-    inset -14px -14px 30px rgba(255,255,255,.98);
-}
-
-.channel-switch {
-  position: relative;
-  display: grid;
-  place-items: center;
-  min-width: 0;
-  aspect-ratio: 1 / .72;
-  width: 100%;
-  padding: 8px;
-  border: 1px solid rgba(255,255,255,.8);
-  border-radius: 8px;
-  color: #2d3748;
-  cursor: pointer;
-  background:
-    radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), rgba(255,255,255,0) 36%),
-    linear-gradient(145deg, #fbfdff, #e2e9f2);
-  box-shadow:
-    12px 12px 24px rgba(188,198,212,.78),
-    -11px -11px 22px rgba(255,255,255,.98),
-    inset 1px 1px 0 rgba(255,255,255,.98);
-  transition:
-    transform .42s cubic-bezier(.18, .95, .2, 1),
-    box-shadow .42s cubic-bezier(.18, .95, .2, 1),
-    border-color .24s ease,
-    background .24s ease;
-}
-
-.channel-switch:hover {
-  transform: translateY(-1px);
-}
-
-.channel-switch:active {
-  transform: translateY(1px) scale(.99);
-  box-shadow:
-    inset 8px 8px 16px rgba(188,198,212,.82),
-    inset -8px -8px 16px rgba(255,255,255,.96);
-}
-
-.channel-switch:focus-visible {
-  outline: 3px solid rgba(255,138,36,.42);
-  outline-offset: 4px;
-}
-
-.toggle-track {
-  position: relative;
-  width: min(82px, 100%);
-  height: clamp(30px, 4.2vw, 42px);
-  padding: 3px;
-  overflow: hidden;
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 22% 18%, rgba(255,255,255,.12), rgba(255,255,255,0) 30%),
-    linear-gradient(145deg, #303844, #070b12 72%);
-  box-shadow:
-    inset 8px 8px 13px rgba(0,0,0,.52),
-    inset -5px -5px 10px rgba(255,255,255,.13),
-    0 8px 14px rgba(52,62,77,.16);
-}
-
-.toggle-fill {
-  position: absolute;
-  inset: 5px auto 5px 8px;
-  width: 40%;
-  border-radius: 999px;
-  opacity: 0;
-  background:
-    radial-gradient(circle at 68% 50%, rgba(255,214,154,.95), rgba(255,214,154,0) 38%),
-    linear-gradient(90deg, rgba(216,139,61,.98), rgba(255,179,95,.18));
-  filter: blur(.2px);
-  transition: opacity .34s ease, transform .42s cubic-bezier(.18, .95, .22, 1);
-}
-
-.toggle-thumb {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: calc(50% - 6px);
-  height: calc(100% - 8px);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 66% 33%, rgba(255,255,255,.96) 0 12%, rgba(255,255,255,0) 28%),
-    linear-gradient(145deg, #ffffff 0%, #eef2f6 38%, #b9c2ce 100%);
-  box-shadow:
-    8px 8px 14px rgba(0,0,0,.38),
-    -4px -4px 9px rgba(255,255,255,.34),
-    inset 1px 1px 2px rgba(255,255,255,.92),
-    inset -2px -2px 4px rgba(134,145,160,.24);
-  transition:
-    transform .46s cubic-bezier(.18, .95, .22, 1),
-    box-shadow .34s ease,
-    background .34s ease;
-}
-
-.channel-switch.is-active {
-  border-color: rgba(255,138,36,.36);
-  background:
-    radial-gradient(circle at 30% 20%, rgba(255,255,255,.92), rgba(255,255,255,0) 38%),
-    linear-gradient(145deg, #ffffff, #e9eef6);
-  box-shadow:
-    13px 13px 26px rgba(188,198,212,.78),
-    -11px -11px 24px rgba(255,255,255,.98),
-    0 0 0 5px rgba(216,139,61,.12);
-}
-
-.channel-switch.is-active .toggle-fill {
-  opacity: 1;
-  transform: translateX(26%);
-}
-
-.channel-switch.is-active .toggle-thumb {
-  transform: translateX(calc(100% + 4px));
-  box-shadow:
-    -8px 8px 16px rgba(0,0,0,.34),
-    3px -3px 10px rgba(255,255,255,.22),
-    inset 1px 1px 2px rgba(255,255,255,.9),
-    inset -2px -2px 4px rgba(134,145,160,.22);
-}
-
-.channel-switch.stream-dead {
-  border-color: rgba(255,83,100,.46);
-  box-shadow:
-    8px 8px 17px rgba(197,205,218,.74),
-    -8px -8px 17px rgba(255,255,255,.9),
-    0 0 0 4px rgba(255,83,100,.12);
-}
-
-.visualizer-panel {
-  position: fixed;
-  right: 16px;
-  bottom: 14px;
-  left: 16px;
-  z-index: 20;
-  display: grid;
-  grid-template-columns: minmax(78px, 118px) 1fr;
-  align-items: center;
-  gap: 14px;
-  width: min(1120px, calc(100% - 32px));
-  height: 104px;
-  margin: 0 auto;
-  padding: 14px;
-  border: 1px solid rgba(255,255,255,.78);
-  border-radius: 8px;
-  background:
-    radial-gradient(circle at 24% 0%, rgba(255,255,255,.82), rgba(255,255,255,0) 38%),
-    linear-gradient(145deg, rgba(250,252,255,.96), rgba(226,233,243,.96));
-  box-shadow:
-    17px 17px 38px rgba(190,199,213,.88),
-    -14px -14px 32px rgba(255,255,255,.96),
-    inset 1px 1px 0 rgba(255,255,255,.94);
-  backdrop-filter: blur(12px);
-}
-
-.visualizer-meta {
-  display: grid;
-  gap: 5px;
-  color: #5c6a7d;
-  font-size: .74rem;
-  font-weight: 900;
-}
-
-.visualizer-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: var(--unknown);
-  box-shadow:
-    3px 3px 7px rgba(191,200,214,.9),
-    -3px -3px 7px rgba(255,255,255,.94);
-}
-
-.visualizer-dot.is-playing {
-  background: var(--accent);
-  box-shadow:
-    0 0 18px rgba(216,139,61,.72),
-    3px 3px 7px rgba(191,200,214,.72),
-    -3px -3px 7px rgba(255,255,255,.9);
-}
-
-#visualizerCanvas {
-  display: block;
-  width: 100%;
-  height: 70px;
-  border-radius: 8px;
-  background: linear-gradient(145deg, #e4ebf4, #fbfcff);
-  box-shadow:
-    inset 8px 8px 16px rgba(199,207,220,.86),
-    inset -8px -8px 16px rgba(255,255,255,.95);
-}
-
-#music {
-  display: none;
-}
-
-@media (max-width: 720px) {
-  body {
-    padding-right: 12px;
-    padding-left: 12px;
-  }
-
-  .health-summary {
-    top: 12px;
-    right: 12px;
-  }
-
-  .channel-grid {
-    grid-template-columns: repeat(5, minmax(44px, 1fr));
-    gap: 12px;
-  }
-
-  .visualizer-panel {
-    right: 10px;
-    bottom: 10px;
-    left: 10px;
-    grid-template-columns: 1fr;
-    gap: 8px;
-    width: calc(100% - 20px);
-    height: 120px;
-  }
-
-  .visualizer-meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-}
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
+<div class="deck-bg" aria-hidden="true"></div>
+
 <main class="app-shell">
-  <article class="radio-panel" aria-label="Radio channel player">
-    <div class="health-summary" id="healthSummary">CHECKING</div>
-
-    <div class="now-playing">
-      <span class="now-label">NOW</span>
-      <span id="currentChannel">Standby</span>
+  <header class="deck-header panel">
+    <div class="brand">
+      <h1>RADIO<span>DECK</span></h1>
+      <p class="tagline">ラヂオボタン // 50CH INTERNET RADIO CONSOLE</p>
     </div>
+    <div class="clock-widget" aria-label="現在時刻">
+      <div class="clock-time" id="clockTime">--:--:--</div>
+      <div class="clock-sub">
+        <span id="clockDate">----------</span>
+        <span class="clock-zone">LOCAL</span>
+      </div>
+    </div>
+  </header>
 
-    <div class="channel-grid" id="channelButtons"></div>
-  </article>
+  <section class="now-panel panel" aria-label="再生中の放送局">
+    <div class="now-playing">
+      <span class="signal-led" id="signalLed"></span>
+      <span class="now-ch" id="nowChannel">CH --</span>
+      <span class="now-name" id="nowName">STANDBY — チャンネルを選択してください</span>
+      <span class="now-genre" id="nowGenre"></span>
+      <span class="now-status" id="nowStatus">IDLE</span>
+    </div>
+  </section>
+
+  <section class="grid-panel panel" aria-label="チャンネル一覧">
+    <div class="grid-head">
+      <h2>CHANNEL MATRIX</h2>
+      <div class="health" id="healthSummary">LINK <b class="ok">OK --</b> / <b class="ng">NG --</b></div>
+      <button type="button" class="console-btn" id="scanButton">⟳ SCAN</button>
+    </div>
+    <div class="channel-grid" id="channelGrid"></div>
+  </section>
 </main>
 
-<footer class="visualizer-panel" aria-label="Water clock">
-  <div class="visualizer-meta">
-    <span class="visualizer-dot" id="visualizerDot"></span>
-    <span id="visualizerState">TIME</span>
+<footer class="console panel" aria-label="コンソール">
+  <canvas id="signalCanvas"></canvas>
+  <div class="console-controls">
+    <button type="button" class="console-btn" id="stopButton">■ STOP</button>
+    <button type="button" class="console-btn" id="shuffleButton">⤨ SHUFFLE</button>
+    <label class="volume">
+      <span>VOL</span>
+      <input type="range" id="volumeSlider" min="0" max="100" step="1" value="80" aria-label="音量">
+      <span id="volumeValue">80</span>
+    </label>
   </div>
-  <canvas id="visualizerCanvas"></canvas>
 </footer>
 
-<audio id="music" preload="none" src="https://live.radiomegahit.eu:8080/stream?icy=https"></audio>
+<!-- スイッチ画像の共有グラデーション定義 (各ボタンの <use> 先) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="swBezelGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4a5870"/>
+      <stop offset="0.45" stop-color="#1b2434"/>
+      <stop offset="1" stop-color="#0c111d"/>
+    </linearGradient>
+    <linearGradient id="swWellGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c1322"/>
+      <stop offset="1" stop-color="#03060d"/>
+    </linearGradient>
+    <linearGradient id="swTrailGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffb35f" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#4ff2ff" stop-opacity="0.95"/>
+    </linearGradient>
+    <radialGradient id="swThumbGrad" cx="0.35" cy="0.3" r="0.95">
+      <stop offset="0" stop-color="#eef4fd"/>
+      <stop offset="0.55" stop-color="#96a8c4"/>
+      <stop offset="1" stop-color="#55637d"/>
+    </radialGradient>
+    <radialGradient id="swThumbLitGrad" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0" stop-color="#ecfeff"/>
+      <stop offset="0.55" stop-color="#4ff2ff"/>
+      <stop offset="1" stop-color="#0e7f92"/>
+    </radialGradient>
+  </defs>
+</svg>
 
-<script>
-var channels = [
-  { name: "Radio Mega-HiT Romania", url: "https://live.radiomegahit.eu:8080/stream?icy=https" },
-  { name: "Kitanohomare Izakaya Sound", url: "http://ststmks.s3.amazonaws.com/izakayasound/media/kitanohomare.mp3" },
-  { name: "Deja Vu Radio Szeged", url: "https://adas.dejavuradio.hu:8178/dejavuradiolq?icy=https" },
-  { name: "a.m. ambient", url: "https://radio.stereoscenic.com:443/ama-s?icy=https" },
-  { name: "Heart Sussex", url: "http://media-ice.musicradio.com/HeartSussexMP3" },
-  { name: "ANTENNE BAYERN Chillout", url: "http://stream.antenne.de:80/chillout?icy=https" },
-  { name: "Ambient Sleeping Pill", url: "https://radio.stereoscenic.com:443/asp-s?icy=https" },
-  { name: "Frank Sinatra Radio", url: "https://sp0.wlservices.org:9998/stream?icy=https" },
-  { name: "ROCK ANTENNE 80er Rock", url: "http://stream.antenne.de:80/80er-rock?icy=https" },
-  { name: "ROCK ANTENNE", url: "http://stream.antenne.de:80/rockantenne?icy=https" },
-  { name: "ketzev-mizrahit", url: "https://liveradio.co.il:9040/;?icy=https" },
-  { name: "Asia DREAM Radio - Japan Hits", url: "https://quincy.torontocast.com:2020/;?icy=https" },
-  { name: "Sleepscapes | Rain", url: "https://stream.willstare.com:8850/;?icy=https" },
-  { name: "Vaporwave Radio", url: "https://streamingv2.shoutcast.com/vaporwaveradio?icy=https" },
-  { name: "RADIO ROMANCE 21 - EUROHITS", url: "https://live.radioromance21.ro:9950/stream?icy=https" },
-  { name: "Deep House Radio Romania", url: "https://streaming-01.xtservers.com:7000/stream?icy=https" },
-  { name: "Hirschmilch Chillout", url: "https://hirschmilch.de:7000/chillout.aac?icy=https" },
-  { name: "100 GREATEST JAZZ LOUNGE BAR", url: "https://cast1.torontocast.com:4640/;?icy=https" },
-  { name: "Deep Space One", url: "http://ice3.somafm.com/deepspaceone-128-mp3" },
-  { name: "Electro Swing Radio", url: "https://streamer.radio.co/s2c3cc784b/listen" },
-  { name: "ROCK ANTENNE Hamburg", url: "http://stream.antenne.de:80/rockantenne-hamburg?icy=https" },
-  { name: "Ced's Anime Radio", url: "https://streamingv2.shoutcast.com/ced-sanimeradio?icy=https" },
-  { name: "J-Rock PowerPlay", url: "https://kathy.torontocast.com:3340/;?icy=https" },
-  { name: "anotherplanet.fm ambient chillout radio", url: "https://stream.anotherplanet.fm:8000/stream.mp3?icy=https" },
-  { name: "Dance Wave!", url: "https://dancewave.online:443/dance.mp3?icy=https" },
-  { name: "Soundstorm Radio", url: "https://stream.soundstorm-radio.com:8000/radio.mp3?icy=https" },
-  { name: "Ambient Modern", url: "https://radio.stereoscenic.com:443/mod-h?icy=https" },
-  { name: "Jazz Club Bandstand", url: "https://cast1.torontocast.com:2060/;?icy=https" },
-  { name: "ANTENNE BAYERN Oldies but Goldies", url: "http://stream.antenne.de:80/oldies-but-goldies?icy=https" },
-  { name: "Otakus Dream", url: "https://streaming0103.sonicpanelradio.com:8144/stream?icy=https" },
-  { name: "Otaku Music Radio", url: "https://kathy.torontocast.com:2880/;?icy=https" },
-  { name: "NATURE RADIO SLEEP", url: "https://az1.mediacp.eu:8100/radio.mp3?icy=https" },
-  { name: "Dance Wave Retro!", url: "https://retro.dancewave.online:443/retrodance.mp3?icy=https" },
-  { name: "Music Factory Athens", url: "https://i4.streams.ovh:9000/stream?icy=https" },
-  { name: "Zucca Radio", url: "http://stream.zuccaradio.com:80/stream?icy=https" },
-  { name: "SENSUAL LOUNGE", url: "https://kathy.torontocast.com:3590/;?icy=https" },
-  { name: "ROCK ANTENNE Osterreich", url: "http://stream.antenne.de:80/rockantenne-oesterreich?icy=https" },
-  { name: "Anime y Juegos", url: "https://streamingv2.shoutcast.com/animeyjuegos?icy=https" },
-  { name: "J-Club Powerplay HipHop", url: "https://kathy.torontocast.com:3350/;?icy=https" },
-  { name: "DIMENSIONE RELAX", url: "https://az1.mediacp.eu:8070/radio.mp3?icy=https" },
-  { name: "DiscoParty.pl - Disco Impreza", url: "https://s3.slotex.pl:7046/;?icy=https" },
-  { name: "DiscoParty.pl - Club", url: "https://s3.slotex.pl:7354/;?icy=https" },
-  { name: "Beach Party Chillout", url: "https://streamingv2.shoutcast.com/beachpartychillout?icy=https" },
-  { name: "Psyndora Chillout", url: "https://cast.magicstreams.gr:9125/stream?icy=https" },
-  { name: "Melodies Web Radio Athens", url: "https://i.streams.ovh:9504/live?icy=https" },
-  { name: "ROCK ANTENNE Heavy Metal", url: "http://stream.antenne.de:80/heavy-metal?icy=https" },
-  { name: "Music Fan anime", url: "https://streamingv2.shoutcast.com/musicfananime?icy=https" },
-  { name: "OnlyHit Japan", url: "http://stream.onlyhit.us:80/japanS_64?icy=https" },
-  { name: "AIRPORT LOUNGE RADIO", url: "https://az1.mediacp.eu:8160/radio.mp3?icy=https" },
-  { name: "Radio Pro-B Romania", url: "https://live.radioprob.ro:8888/stream?icy=https" }
-];
+<!-- チャンネルボタンの雛形。js/app.js が局の数だけ複製する。
+     <use> だと内部パーツにクラスセレクタが届かないため、アートを直接展開している -->
+<template id="switchTemplate">
+  <button type="button" class="channel-switch" aria-pressed="false">
+    <svg class="switch-art" viewBox="0 0 120 76" aria-hidden="true" focusable="false">
+      <rect class="sw-bezel" x="2" y="2" width="116" height="72" rx="14"/>
+      <rect class="sw-well" x="7" y="7" width="106" height="62" rx="10"/>
+      <rect class="sw-track" x="14" y="22" width="92" height="32" rx="16"/>
+      <rect class="sw-trail" x="18" y="27" width="72" height="22" rx="11"/>
+      <g class="sw-thumb">
+        <circle class="sw-ring" cx="30" cy="38" r="17"/>
+        <circle class="sw-thumb-base" cx="30" cy="38" r="13"/>
+        <circle class="sw-thumb-lit" cx="30" cy="38" r="13"/>
+        <g transform="translate(22,30) scale(0.667)">
+          <path class="sw-glyph" d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+          <path class="sw-glyph" d="M12 2v10"/>
+        </g>
+      </g>
+      <circle class="sw-led" cx="105" cy="14.5" r="3"/>
+    </svg>
+    <span class="switch-label"></span>
+  </button>
+</template>
 
-var channelButtons = [];
-var activeChannelIndex = null;
+<audio id="player" preload="none"></audio>
 
-function updateHealthSummary() {
-  var counts = channelButtons.reduce(function (result, button) {
-    var state = button.dataset.streamState || "pending";
-    result[state] = (result[state] || 0) + 1;
-    return result;
-  }, {});
-  var summary = document.getElementById("healthSummary");
-
-  if (!summary) return;
-  summary.textContent = "OK " + (counts.ok || 0) + " / NG " + (counts.dead || 0);
-}
-
-function setChannelState(index, state, detail) {
-  var button = channelButtons[index];
-  var label = "Channel " + String(index + 1).padStart(2, "0");
-
-  if (!button) return;
-
-  button.classList.remove("stream-checking", "stream-ok", "stream-dead", "stream-unknown");
-  button.dataset.streamState = state;
-
-  if (state) {
-    button.classList.add("stream-" + state);
-  }
-
-  if (state === "ok") {
-    button.title = label + " - OK";
-  } else if (state === "dead") {
-    button.title = label + " - Not reachable" + (detail ? " (" + detail + ")" : "");
-  } else if (state === "unknown") {
-    button.title = label + " - Check unavailable" + (detail ? " (" + detail + ")" : "");
-  } else if (state === "checking") {
-    button.title = label + " - Checking";
-  } else {
-    button.title = label;
-  }
-
-  updateHealthSummary();
-}
-
-function setActiveChannel(index) {
-  activeChannelIndex = index;
-  channelButtons.forEach(function (button, buttonIndex) {
-    var active = buttonIndex === index;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-pressed", active ? "true" : "false");
-  });
-}
-
-function updatePlaybackStatus(status) {
-  var state = document.getElementById("visualizerState");
-  var dot = document.getElementById("visualizerDot");
-
-  if (state) {
-    state.textContent = status;
-  }
-
-  if (dot) {
-    dot.classList.toggle("is-playing", status === "PLAYING");
-  }
-}
-
-function playChannel(index) {
-  var channel = channels[index];
-  var player = document.getElementById("music");
-  var current = document.getElementById("currentChannel");
-
-  if (!channel || !player) return;
-
-  setActiveChannel(index);
-
-  if (current) {
-    current.textContent = channel.name || "CHANNEL " + String(index + 1).padStart(2, "0");
-  }
-
-  player.src = channel.url;
-  player.load();
-  updatePlaybackStatus("LOADING");
-
-  var playback = player.play();
-  if (playback && typeof playback.catch === "function") {
-    playback.catch(function (error) {
-      console.warn("Playback failed:", channel.name, error);
-      updatePlaybackStatus("ERROR");
-      setChannelState(index, "dead", "playback failed");
-    });
-  }
-}
-
-function renderChannelButtons() {
-  var container = document.getElementById("channelButtons");
-  if (!container) return;
-
-  channels.forEach(function (channel, index) {
-    var button = document.createElement("button");
-    var track = document.createElement("span");
-    var fill = document.createElement("span");
-    var thumb = document.createElement("span");
-
-    button.type = "button";
-    button.className = "channel-switch";
-    button.title = "Channel " + String(index + 1).padStart(2, "0");
-    button.setAttribute("aria-label", "Channel " + String(index + 1).padStart(2, "0"));
-    button.setAttribute("aria-pressed", "false");
-
-    track.className = "toggle-track";
-    fill.className = "toggle-fill";
-    thumb.className = "toggle-thumb";
-
-    track.appendChild(fill);
-    track.appendChild(thumb);
-    button.appendChild(track);
-    button.addEventListener("click", function () {
-      playChannel(index);
-    });
-    container.appendChild(button);
-    channelButtons[index] = button;
-  });
-
-  updateHealthSummary();
-}
-
-function checkChannel(index) {
-  return new Promise(function (resolve) {
-    var channel = channels[index];
-    var probe = document.createElement("audio");
-    var finished = false;
-    var timer = null;
-    var interval = null;
-
-    function cleanup() {
-      clearTimeout(timer);
-      clearInterval(interval);
-      probe.pause();
-      probe.removeAttribute("src");
-      probe.load();
-      if (probe.parentNode) {
-        probe.parentNode.removeChild(probe);
-      }
-    }
-
-    function finish(state, detail) {
-      if (finished) return;
-      finished = true;
-      cleanup();
-      setChannelState(index, state, detail);
-      resolve({ index: index, state: state, detail: detail });
-    }
-
-    setChannelState(index, "checking");
-
-    probe.muted = true;
-    probe.preload = "none";
-    probe.src = channel.url;
-    probe.style.display = "none";
-    document.body.appendChild(probe);
-
-    probe.addEventListener("error", function () {
-      finish("dead", "media error");
-    });
-
-    var playback = probe.play();
-    if (playback && typeof playback.catch === "function") {
-      playback.catch(function (error) {
-        if (finished) return;
-
-        if (error && error.name === "NotAllowedError") {
-          finish("unknown", "autoplay blocked");
-        }
-      });
-    }
-
-    interval = setInterval(function () {
-      if (probe.error) {
-        finish("dead", "media error");
-      } else if (!probe.paused && probe.readyState >= 3 && probe.currentTime > 0.2) {
-        finish("ok");
-      }
-    }, 200);
-
-    timer = setTimeout(function () {
-      finish("dead", "timeout");
-    }, 6500);
-  });
-}
-
-function checkAllChannels() {
-  var nextIndex = 0;
-  var active = 0;
-  var maxActive = 8;
-
-  function runNext() {
-    while (active < maxActive && nextIndex < channels.length) {
-      active += 1;
-      checkChannel(nextIndex).then(function () {
-        active -= 1;
-        runNext();
-      });
-      nextIndex += 1;
-    }
-  }
-
-  runNext();
-}
-
-function resizeCanvas(canvas, context) {
-  var ratio = window.devicePixelRatio || 1;
-  var width = Math.max(1, Math.floor(canvas.clientWidth * ratio));
-  var height = Math.max(1, Math.floor(canvas.clientHeight * ratio));
-
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width;
-    canvas.height = height;
-  }
-
-  context.setTransform(ratio, 0, 0, ratio, 0, 0);
-}
-
-function drawBar(context, x, y, width, height, radius) {
-  if (context.roundRect) {
-    context.beginPath();
-    context.roundRect(x, y, width, height, radius);
-    context.fill();
-    return;
-  }
-
-  context.fillRect(x, y, width, height);
-}
-
-function drawVisualizer() {
-  var canvas = document.getElementById("visualizerCanvas");
-  var context = canvas && canvas.getContext("2d");
-  var width;
-  var height;
-  var now = Date.now();
-  var seconds = now / 1000;
-  var time = new Date(now);
-  var timeText = time.toLocaleTimeString("ja-JP", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit"
-  });
-  var fill;
-  var surface;
-  var wave;
-  var i;
-
-  if (!canvas || !context) {
-    requestAnimationFrame(drawVisualizer);
-    return;
-  }
-
-  resizeCanvas(canvas, context);
-  width = canvas.clientWidth;
-  height = canvas.clientHeight;
-  context.clearRect(0, 0, width, height);
-
-  context.save();
-  if (context.roundRect) {
-    context.beginPath();
-    context.roundRect(0, 0, width, height, 8);
-    context.clip();
-  }
-
-  surface = height * .32 + Math.sin(seconds * .8) * 2;
-  fill = context.createLinearGradient(0, surface, 0, height);
-  fill.addColorStop(0, "rgba(255,204,126,.96)");
-  fill.addColorStop(.42, "rgba(245,151,55,.92)");
-  fill.addColorStop(1, "rgba(205,91,28,.9)");
-
-  context.beginPath();
-  context.moveTo(0, height);
-  context.lineTo(0, surface);
-  for (i = 0; i <= width + 8; i += 8) {
-    wave = Math.sin(i * .024 + seconds * 1.8) * 4
-      + Math.sin(i * .052 - seconds * 1.15) * 2;
-    context.lineTo(i, surface + wave);
-  }
-  context.lineTo(width, height);
-  context.closePath();
-  context.fillStyle = fill;
-  context.fill();
-
-  context.beginPath();
-  for (i = 0; i <= width + 8; i += 8) {
-    wave = Math.sin(i * .024 + seconds * 1.8) * 4
-      + Math.sin(i * .052 - seconds * 1.15) * 2;
-    if (i === 0) {
-      context.moveTo(i, surface + wave);
-    } else {
-      context.lineTo(i, surface + wave);
-    }
-  }
-  context.strokeStyle = "rgba(255,241,204,.86)";
-  context.lineWidth = 2;
-  context.stroke();
-
-  context.font = "900 " + Math.max(24, Math.min(42, height * .48)) + "px Segoe UI, system-ui, sans-serif";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.shadowColor = "rgba(112,47,11,.38)";
-  context.shadowBlur = 10;
-  context.fillStyle = "rgba(255,248,235,.96)";
-  context.fillText(timeText, width / 2, surface + (height - surface) * .55);
-  context.restore();
-
-  requestAnimationFrame(drawVisualizer);
-}
-
-function bindPlayerEvents() {
-  var player = document.getElementById("music");
-
-  if (!player) return;
-
-  player.addEventListener("playing", function () {
-    updatePlaybackStatus("PLAYING");
-  });
-  player.addEventListener("pause", function () {
-    updatePlaybackStatus("PAUSED");
-  });
-  player.addEventListener("waiting", function () {
-    updatePlaybackStatus("LOADING");
-  });
-  player.addEventListener("error", function () {
-    updatePlaybackStatus("ERROR");
-    if (activeChannelIndex !== null) {
-      setChannelState(activeChannelIndex, "dead", "playback failed");
-    }
-  });
-}
-
-renderChannelButtons();
-bindPlayerEvents();
-drawVisualizer();
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", checkAllChannels);
-} else {
-  checkAllChannels();
-}
-</script>
+<script src="js/stations.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
