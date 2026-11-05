@@ -29,7 +29,7 @@
   var freqData = null;
 
   var STORE_VOLUME = "radiodeck.volume";
-  var STORE_CHANNEL = "radiodeck.channel";
+  var STORE_CHANNEL = "radiodeck.stream";
 
   /* iOS WebKit は MediaElementAudioSourceNode がストリーミング音源で
      正しく動かない (解析データが常にゼロ / 音声が無音化することがある)
@@ -187,7 +187,7 @@
 
   function playChannel(index) {
     var station = stations[index];
-    if (!station) return;
+    if (!station || !station.url) return;
 
     /* 点灯中のスイッチを再クリック → 消灯 (トグル動作) */
     if (index === activeIndex) {
@@ -210,7 +210,7 @@
 
     setNowPanel(index, station.name, station.genre);
     setPlaybackStatus("LOADING");
-    writeStore(STORE_CHANNEL, String(index));
+    writeStore(STORE_CHANNEL, station.url);
 
     ensureAudioGraph();
     startPlayback(index, station.noCors || !analyser ? playerPlain : playerCors);
@@ -222,15 +222,26 @@
     stations.forEach(function (station, index) {
       var node = template.content.firstElementChild.cloneNode(true);
 
-      node.querySelector(".switch-label").textContent = channelLabel(index);
+      if (station.playerUrl) {
+        var link = document.createElement("a");
+        link.className = node.className;
+        link.href = station.playerUrl;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.append.apply(link, node.childNodes);
+        node = link;
+      } else {
+        node.addEventListener("click", function () {
+          playChannel(index);
+        });
+      }
+
+      node.querySelector(".switch-label").textContent = channelLabel(index) + (station.playerUrl ? " ↗" : "");
       node.title = channelLabel(index) + " " + station.name + " [" + station.genre + "]";
       node.setAttribute(
         "aria-label",
-        channelLabel(index) + " " + station.name
+        channelLabel(index) + " " + station.name + (station.playerUrl ? "（公式プレーヤーを新しいタブで開く）" : "")
       );
-      node.addEventListener("click", function () {
-        playChannel(index);
-      });
 
       grid.appendChild(node);
       buttons[index] = node;
@@ -269,6 +280,7 @@
   /* ミュートした audio 要素で実ストリームを短時間だけ再生してみる。
      CORS の制約を受けずに到達性を判定できる。 */
   function checkChannel(index) {
+    if (!stations[index].url) return Promise.resolve();
     return new Promise(function (resolve) {
       var probe = document.createElement("audio");
       var finished = false;
@@ -649,7 +661,7 @@
     var index;
 
     buttons.forEach(function (button, buttonIndex) {
-      if (buttonIndex === activeIndex) return;
+      if (buttonIndex === activeIndex || !stations[buttonIndex].url) return;
       fallback.push(buttonIndex);
       if (button.dataset.streamState !== "dead") {
         preferred.push(buttonIndex);
@@ -678,16 +690,17 @@
     document.addEventListener("keydown", function (event) {
       if (event.target !== document.body) return;
 
-      if (event.key === "ArrowRight") {
+      if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
         event.preventDefault();
-        playChannel(activeIndex === null ? 0 : (activeIndex + 1) % stations.length);
-      } else if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        playChannel(
-          activeIndex === null
-            ? stations.length - 1
-            : (activeIndex - 1 + stations.length) % stations.length
-        );
+        var step = event.key === "ArrowRight" ? 1 : -1;
+        var index = activeIndex === null ? (step === 1 ? -1 : 0) : activeIndex;
+        for (var checked = 0; checked < stations.length; checked += 1) {
+          index = (index + step + stations.length) % stations.length;
+          if (stations[index].url) {
+            if (index !== activeIndex) playChannel(index);
+            break;
+          }
+        }
       } else if (event.key === " ") {
         event.preventDefault();
         if (activeIndex !== null) {
@@ -735,12 +748,12 @@
     var rawVolume = readStore(STORE_VOLUME);
     var rawChannel = readStore(STORE_CHANNEL);
     var storedVolume = rawVolume === null ? NaN : Number(rawVolume);
-    var storedChannel = rawChannel === null ? NaN : Number(rawChannel);
+    var storedChannel = stations.findIndex(function (station) { return station.url === rawChannel; });
 
     applyVolume(Number.isFinite(storedVolume) ? storedVolume : 80);
 
     /* 自動再生はブラウザ側で拒否されるため、前回局の表示だけ復元する */
-    if (Number.isFinite(storedChannel) && stations[storedChannel]) {
+    if (storedChannel >= 0) {
       setNowPanel(storedChannel, "LAST — " + stations[storedChannel].name, stations[storedChannel].genre);
       document.getElementById("nowStatus").textContent = "READY";
     }
