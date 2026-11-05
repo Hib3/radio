@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <!-- ?v= はモバイルSafariの強いキャッシュ対策。更新時に数字を上げる -->
-<link rel="stylesheet" href="css/style.css?v=6">
+<link rel="stylesheet" href="css/style.css?v=7">
 </head>
 
 <body>
@@ -55,7 +55,6 @@
   <canvas id="signalCanvas"></canvas>
   <div class="console-controls">
     <button type="button" class="console-btn" id="stopButton">■ STOP</button>
-    <button type="button" class="console-btn" id="shuffleButton">⤨ SHUFFLE</button>
     <label class="volume">
       <span>VOL</span>
       <input type="range" id="volumeSlider" min="0" max="100" step="1" value="80" aria-label="音量">
@@ -113,7 +112,6 @@
       </g>
       <circle class="sw-led" cx="105" cy="14.5" r="3"/>
     </svg>
-    <span class="switch-label"></span>
   </button>
 </template>
 
@@ -123,7 +121,7 @@
 <audio id="playerCors" preload="none" crossorigin="anonymous"></audio>
 <audio id="playerPlain" preload="none"></audio>
 
-<script src="js/stations.js?v=7"></script>
-<script src="js/app.js?v=5"></script>
+<script src="js/stations.js?v=8"></script>
+<script src="js/app.js?v=6"></script>
 </body>
 </html>

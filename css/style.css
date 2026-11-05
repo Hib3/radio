@@ -352,10 +352,6 @@ button {
     box-shadow 0.35s ease;
 }
 
-a.channel-switch {
-  text-decoration: none;
-}
-
 .channel-switch:hover {
   transform: translateY(-2px);
   border-color: rgba(79, 242, 255, 0.4);
@@ -385,18 +381,7 @@ a.channel-switch {
   height: auto;
 }
 
-.switch-label {
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.16em;
-  transition: color 0.3s, text-shadow 0.3s;
-}
 
-.channel-switch.is-active .switch-label {
-  color: var(--cyan);
-  text-shadow: 0 0 10px rgba(79, 242, 255, 0.7);
-}
 
 /* --- SVG内部パーツ --- */
 .sw-bezel {
@@ -730,9 +715,6 @@ a.channel-switch {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .switch-label {
-    font-size: 0.56rem;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

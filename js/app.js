@@ -187,7 +187,7 @@
 
   function playChannel(index) {
     var station = stations[index];
-    if (!station || !station.url) return;
+    if (!station) return;
 
     /* 点灯中のスイッチを再クリック → 消灯 (トグル動作) */
     if (index === activeIndex) {
@@ -222,26 +222,10 @@
     stations.forEach(function (station, index) {
       var node = template.content.firstElementChild.cloneNode(true);
 
-      if (station.playerUrl) {
-        var link = document.createElement("a");
-        link.className = node.className;
-        link.href = station.playerUrl;
-        link.target = "_blank";
-        link.rel = "noopener";
-        link.append.apply(link, node.childNodes);
-        node = link;
-      } else {
-        node.addEventListener("click", function () {
-          playChannel(index);
-        });
-      }
-
-      node.querySelector(".switch-label").textContent = channelLabel(index) + (station.playerUrl ? " ↗" : "");
-      node.title = channelLabel(index) + " " + station.name + " [" + station.genre + "]";
-      node.setAttribute(
-        "aria-label",
-        channelLabel(index) + " " + station.name + (station.playerUrl ? "（公式プレーヤーを新しいタブで開く）" : "")
-      );
+      node.setAttribute("aria-label", channelLabel(index) + " " + station.name);
+      node.addEventListener("click", function () {
+        playChannel(index);
+      });
 
       grid.appendChild(node);
       buttons[index] = node;
@@ -267,12 +251,11 @@
 
   function setChannelState(index, state, detail) {
     var button = buttons[index];
-    var base = button.getAttribute("aria-label");
 
     button.classList.remove("stream-checking", "stream-ok", "stream-dead", "stream-unknown");
     button.classList.add("stream-" + state);
     button.dataset.streamState = state;
-    button.title = base + (detail ? " — " + detail : state === "ok" ? " — LINK OK" : "");
+    button.setAttribute("aria-description", detail || (state === "ok" ? "LINK OK" : ""));
 
     updateHealthSummary();
   }
@@ -280,7 +263,6 @@
   /* ミュートした audio 要素で実ストリームを短時間だけ再生してみる。
      CORS の制約を受けずに到達性を判定できる。 */
   function checkChannel(index) {
-    if (!stations[index].url) return Promise.resolve();
     return new Promise(function (resolve) {
       var probe = document.createElement("audio");
       var finished = false;
@@ -654,32 +636,8 @@
     writeStore(STORE_VOLUME, String(clamped));
   }
 
-  function shuffleChannel() {
-    var preferred = [];
-    var fallback = [];
-    var pool;
-    var index;
-
-    buttons.forEach(function (button, buttonIndex) {
-      if (buttonIndex === activeIndex || !stations[buttonIndex].url) return;
-      fallback.push(buttonIndex);
-      if (button.dataset.streamState !== "dead") {
-        preferred.push(buttonIndex);
-      }
-    });
-
-    /* NG 局を避けつつ、候補が無くても必ずどこかを選ぶ */
-    pool = preferred.length ? preferred : fallback;
-    if (!pool.length) return;
-
-    index = pool[Math.floor(Math.random() * pool.length)];
-    playChannel(index);
-    buttons[index].focus();
-  }
-
   function bindConsole() {
     document.getElementById("stopButton").addEventListener("click", stopPlayback);
-    document.getElementById("shuffleButton").addEventListener("click", shuffleChannel);
     document.getElementById("scanButton").addEventListener("click", scanAllChannels);
     document.getElementById("volumeSlider").addEventListener("input", function (event) {
       applyVolume(Number(event.target.value));
@@ -690,24 +648,19 @@
     document.addEventListener("keydown", function (event) {
       if (event.target !== document.body) return;
 
-      if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      if (event.key === "ArrowRight") {
         event.preventDefault();
-        var step = event.key === "ArrowRight" ? 1 : -1;
-        var index = activeIndex === null ? (step === 1 ? -1 : 0) : activeIndex;
-        for (var checked = 0; checked < stations.length; checked += 1) {
-          index = (index + step + stations.length) % stations.length;
-          if (stations[index].url) {
-            if (index !== activeIndex) playChannel(index);
-            break;
-          }
-        }
-      } else if (event.key === " ") {
+        playChannel(activeIndex === null ? 0 : (activeIndex + 1) % stations.length);
+      } else if (event.key === "ArrowLeft") {
         event.preventDefault();
-        if (activeIndex !== null) {
-          stopPlayback();
-        } else {
-          shuffleChannel();
-        }
+        playChannel(
+          activeIndex === null
+            ? stations.length - 1
+            : (activeIndex - 1 + stations.length) % stations.length
+        );
+      } else if (event.key === " " && activeIndex !== null) {
+        event.preventDefault();
+        stopPlayback();
       }
     });
   }
