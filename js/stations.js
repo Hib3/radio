@@ -65,5 +65,6 @@ window.RADIO_STATIONS = [
   { name: "LISTEN.moe J-POP",           genre: "J-POP",      url: "https://listen.moe/fallback" },
   { name: "LISTEN.moe K-POP",           genre: "K-POP",      url: "https://listen.moe/kpop/fallback" },
   { name: "KEXP 90.3 Seattle",          genre: "INDIE",      url: "https://kexp.streamguys1.com/kexp160.aac" },
-  { name: "Dance Wave!",                genre: "DANCE",      url: "https://dancewave.online/dance.mp3" }
+  { name: "Dance Wave!",                genre: "DANCE",      url: "https://dancewave.online/dance.mp3" },
+  { name: "bermuda.funk",                genre: "COMMUNITY",  url: "https://streaming.fueralle.org/bermudafunk_high" }
 ];
